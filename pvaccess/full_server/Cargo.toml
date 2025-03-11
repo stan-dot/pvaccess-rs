@@ -1,0 +1,8 @@
+[package]
+name = "full_server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = "1.44.0"
+warp = "0.3.7"

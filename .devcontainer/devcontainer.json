@@ -1,0 +1,35 @@
+{
+  "name": "Playground",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bierner.markdown-mermaid",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "tsandall.opa",
+        "fill-labs.dependi",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "none",
+      "upgradePackages": false
+    },
+    "ghcr.io/devcontainers/features/git-lfs:1": {}
+  },
+  "runArgs": [
+    "--security-opt=label=type:container_runtime_t"
+  ],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/root/.shh,type=bind",
+    "source=${localEnv:HOME}/.inputrc,target=/root/.inputrc,type=bind"
+  ],
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}"
+}
