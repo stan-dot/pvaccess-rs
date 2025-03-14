@@ -1,4 +1,5 @@
 use config::{Config, File};
+use std::env;
 
 use protocol::{Msg, MsgType};
 use rmp_serde::{decode, encode};
@@ -17,9 +18,13 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
+    println!("Looking for a config file...");
+    let config_path =
+        env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/server/config/server".to_string());
+    println!("Loading config from: {}", config_path);
     // 🔹 1️⃣ Load Configuration
     let settings = Config::builder()
-        .add_source(File::with_name("config/server"))
+        .add_source(File::with_name(&config_path))
         .build()
         .expect("Failed to load server configuration");
 
