@@ -6,7 +6,49 @@ use tokio::sync::{RwLock, mpsc};
 use tokio::task;
 use tokio::time::{Duration, interval};
 use tokio_tungstenite::tungstenite::Message;
-use warp::Filter;
+
+use rmp_serde::{decode, encode};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::time::{Duration, interval};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Msg {
+    msg_type: String,
+    content: String,
+}
+
+// 🔹 Handle TCP client connections
+async fn handle_tcp_client_msgpack(mut socket: TcpStream, addr: SocketAddr) {
+    let hello_msg = Msg {
+        msg_type: "hello".to_string(),
+        content: "Welcome to the server!".to_string(),
+    };
+
+    // Serialize and send MsgPack message
+    let mut buf = Vec::new();
+    encode::write(&mut buf, &hello_msg).unwrap();
+    let _ = socket.write_all(&buf).await;
+
+    let mut buffer = vec![0; 1024];
+
+    loop {
+        match socket.read(&mut buffer).await {
+            Ok(0) => {
+                println!("Client {} disconnected", addr);
+                break;
+            }
+            Ok(n) => {
+                if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
+                    println!("Received from {}: {:?}", addr, msg);
+                }
+            }
+            Err(_) => break,
+        }
+    }
+}
 
 #[derive(Clone)]
 struct ServerState {
@@ -144,4 +186,21 @@ async fn main() {
     }
 
     tokio::try_join!(tcp_task, ws_task, udp_task).unwrap();
+}
+
+#[tokio::main]
+async fn main() {
+    // 1️⃣ Start UDP beacon task
+    tokio::spawn(udp_beacon());
+
+    // 2️⃣ Start TCP listener
+    let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
+    println!("TCP Server running on 0.0.0.0:8000");
+
+    loop {
+        let (socket, addr) = listener.accept().await.unwrap();
+        println!("New TCP client connected: {}", addr);
+
+        tokio::spawn(handle_tcp_client(socket, addr));
+    }
 }

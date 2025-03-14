@@ -1,12 +1,9 @@
-use tokio::sync::mpsc::{Sender, Receiver, channel};
-use tokio::sync::RwLock;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::time::{sleep, Duration};
-use tokio::task;
-use std::sync::Arc;
 use std::collections::{HashMap, VecDeque};
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tokio::io::AsyncReadExt;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::RwLock;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 
 #[derive(Clone)]
 struct Server {
@@ -69,14 +66,17 @@ impl Server {
     async fn get_or_create_channel(&self, name: &str, buffer_size: usize) -> Arc<RwLock<Channel>> {
         let mut channels = self.channels.write().await;
         if !channels.contains_key(name) {
-            channels.insert(name.to_string(), Arc::new(RwLock::new(Channel::new(name, buffer_size))));
+            channels.insert(
+                name.to_string(),
+                Arc::new(RwLock::new(Channel::new(name, buffer_size))),
+            );
         }
         channels.get(name).unwrap().clone()
     }
 
     async fn handle_client(&self, client_id: String, mut socket: TcpStream) {
         let (tx, mut rx): (Sender<String>, Receiver<String>) = channel(32);
-        
+
         // Register client for future messages
         {
             let mut clients = self.clients.write().await;
@@ -94,7 +94,7 @@ impl Server {
                 Ok(n) => {
                     let command = String::from_utf8_lossy(&buffer[..n]).to_string();
                     println!("Received command from {}: {}", client_id, command);
-                    
+
                     // Parse subscription commands (e.g., "SUBSCRIBE channel_name")
                     if command.starts_with("SUBSCRIBE") {
                         let parts: Vec<&str> = command.split_whitespace().collect();
@@ -102,7 +102,10 @@ impl Server {
                             let channel_name = parts[1];
                             let channel = self.get_or_create_channel(channel_name, 10).await;
                             channel.subscribe(client_id.clone(), tx.clone()).await;
-                            println!("Client {} subscribed to channel: {}", client_id, channel_name);
+                            println!(
+                                "Client {} subscribed to channel: {}",
+                                client_id, channel_name
+                            );
                         }
                     }
                 }
@@ -116,6 +119,7 @@ impl Server {
 
     async fn publish_to_channel(&self, channel_name: &str, message: String) {
         if let Some(channel) = self.channels.read().await.get(channel_name) {
+            let c = Arc::get_mut(&mut channel).unwrap().blocking_read();
             channel.publish(message).await;
         }
     }
