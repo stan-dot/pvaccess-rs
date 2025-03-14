@@ -13,51 +13,69 @@
 - [ ] make sure server and client can connect and send confirmation message
 - [ ] check echo message
 - [ ] check multi client connections
+- [ ] send UUIDs - initialized locally - use HOSTNAME for the pod if right
 
+## DX 
 
-## big crucial step - stateless service
+- [ ] add tests for various scenarios and regression testing
+- [ ] consider cargo make for running tests https://github.com/sagiegurari/cargo-make
 - [ ] test docker-compose for https://github.com/dragonflydb/dragonfly - check out Garry's stuff for this maybe the machine would work after the rebuild
 - [ ] make channels setup with msgpack and redis - and design for arbitrary protocol
 
+## pvaccess stateless start
 
-## further
-- [ ] send UUIDs - initialized locally - asked in k8s pod - use HOSTNAME for the pod if right
-maybe
-- [ ] define the pvaccess protocol in a separate package and feature
+- [ ] define the pvaccess protocol in a separate package and feature, so msgpack as one, and pvaccess as another
 
-- [ ] implement the pvaccess messages
-- [ ] implement the pvaccess channel logic
+- [ ] Protocol Messages - start
+    - [ ] Message Header - easy just 4 bytes and an int
 
-- [ ] Protocol Messages 
-    - [ ] Message Header 
-- [ ] Application Messages 
+- [ ] easy messages to start with 
     - [ ] Beacon (0x00) 
-    - [ ] Connection validation (0x01
+    - [ ] Connection validation (0x01)
     - [ ] Echo (0x02) 
+    - [ ] Message (0x12)  - human readable into the client - start with this one
+
+- [ ] Control Messages  - easy part
+    - [ ] Echo request (0x03) - diagnostic
+    - [ ] Echo response (0x04) - diagnostic response
+
+- [ ] application messages - UDP discovery
     - [ ] Search request (0x03) 
     - [ ] Search response (0x04) 
-    - [ ] Create channel (0x07) 
-    - [ ] Destroy channel (0x08) 
-    - [ ] Channel get (0x0A) 
-    - [ ] Channel put (0x0B) 
-    - [ ] Channel put-get (0x0C) 
-    - [ ] Channel monitor (0x0D) 
-    - [ ] Channel array (0x0E) 
-    - [ ] Destroy request (0xF) 
-    - [ ] Channel process (0x10) 
-    - [ ] Get channel type introspection data (0x11) 
-    - [ ] Message (0x12) 
-    - [ ] Channel RPC (0x14) 
-    - [ ] Cancel request (0x15) 
-- [ ] Control Messages 
-    - [ ] Mark Total Byte Sent (0x00) 
+
+
+## channel CRUD stuff - from Application Messages - by here need redis
+
+- [ ] Search request (0x03) 
+- [ ] Search response (0x04) 
+- [ ] Create channel (0x07) - must make an equivalent to json-schema.
+- [ ] Destroy channel (0x08) 
+- [ ] Channel get (0x0A) 
+- [ ] Channel put (0x0B) 
+- [ ] Channel put-get (0x0C) 
+- [ ] Channel monitor (0x0D) 
+- [ ] Get channel type introspection data (0x11) - basic channel meta read
+
+
+## feels not needed atm
+
+### cherry on the top
+- [ ] Application Messages  - miscellanea
+    - [ ] Destroy request (0xF) - what is the difference from cancel request? request instance not pending request. they have the same signature though
+    - [ ] Cancel request (0x15)  - just the same almost
+
+- [ ] Control Messages  - hard part
+    - [ ] Mark Total Byte Sent (0x00) - idk if necessary
     - [ ] Acknowledge Total Bytes Received (0x01) 
-    - [ ] Set byte order (0x02) 
-    - [ ] Echo request (0x03) 
-    - [ ] Echo response (0x04) 
+    - [ ] Set byte order (0x02) - sent first after the connection is established
 
+### beyond MVP
+- [ ] Channel array (0x0E)  - some multiple values setup, idk
+- [ ] will need a queue for it, 
+    - [ ] Channel RPC (0x14)  
+- [ ] Channel process (0x10) - execute code associated with the channel?? weird, similar to RPC
 
-## after the grafana - kafka discussion
+### after the grafana - kafka discussion
 
 - [ ] TUI visualization
 - [ ] REACT visualization iff websockets
