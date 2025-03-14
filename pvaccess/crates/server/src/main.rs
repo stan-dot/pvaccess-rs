@@ -1,75 +1,153 @@
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use tokio::time::{sleep, Duration};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
+use config::{Config, File};
+
+use protocol::{Msg, MsgType};
+use rmp_serde::{decode, encode};
+use std::collections::HashMap;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream, UdpSocket},
+    signal,
+    sync::{RwLock, oneshot},
+    time::{Duration, interval},
+};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Atomic flag to control beacon timing.
+async fn main() {
+    // 🔹 1️⃣ Load Configuration
+    let settings = Config::builder()
+        .add_source(File::with_name("config/server"))
+        .build()
+        .expect("Failed to load server configuration");
+
+    let network: HashMap<String, String> = settings.get("network").unwrap();
+    let tcp_addr: String = network["tcp_addr"].clone();
+
+    // 🔹 2️⃣ Create a shutdown signal (Ctrl+C)
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
     let udp_active = Arc::new(AtomicBool::new(true));
-    
-    // 1. Start the UDP beacon in the background
+    let shared_settings = Arc::new(RwLock::new(network));
+
+    // 🔹 3️⃣ Start UDP Beacon Task
     let udp_active_clone = Arc::clone(&udp_active);
-    tokio::spawn(async move {
-        send_udp_beacons(udp_active_clone).await;
+    let udp_task = tokio::spawn(async move {
+        send_udp_beacons(udp_active_clone, shared_settings.clone()).await;
     });
 
-    // 2. Start the TCP server
-    let listener = TcpListener::bind("127.0.0.1:8000").await?;
-    println!("Server listening on 127.0.0.1:8000");
+    // 🔹 4️⃣ Start TCP Server
+    let listener = TcpListener::bind(&tcp_addr).await.unwrap();
+    println!("TCP Server running on {}", tcp_addr);
 
-    loop {
-        let (socket, addr) = listener.accept().await?;
-        println!("New client connected: {}", addr);
+    let tcp_task = tokio::spawn(async move {
+        loop {
+            let (socket, addr) = listener.accept().await.unwrap();
+            println!("New TCP client connected: {}", addr);
 
-        // Handle each client connection asynchronously
-        tokio::spawn(handle_client(socket));
+            tokio::spawn(handle_tcp_client(socket));
+        }
+    });
+
+    // 🔹 5️⃣ Wait for shutdown signal
+    tokio::select! {
+        _ = signal::ctrl_c() => {
+            println!("Received shutdown signal, stopping server...");
+        }
+        _ = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap().recv() => {
+            println!("Received SIGTERM (Kubernetes shutdown), stopping server...");
+        }
+        _ = shutdown_rx => {
+            println!("Shutdown initiated...");
+        }
     }
+
+    // 🔹 6️⃣ Perform Graceful Shutdown
+    udp_active.store(false, Ordering::Relaxed); // Stop the UDP beacon
+    udp_task.await.unwrap(); // Wait for the UDP task to exit
+    tcp_task.abort(); // Stop accepting new TCP clients
+
+    println!("Server shut down gracefully.");
 }
 
-async fn handle_client(mut socket: TcpStream) {
-    let hello_message = b"Hello, welcome to the server!\n";
-    
-    // Send "Hello" message to client
-    if let Err(e) = socket.write_all(hello_message).await {
-        eprintln!("Failed to send hello message: {:?}", e);
-        return;
-    }
-    println!("Sent hello message to client");
+// 🔹 Handle TCP Client Connection
+async fn handle_tcp_client(mut socket: TcpStream) {
+    let validation_msg = Msg {
+        msg_type: MsgType::ConnectionValidation,
+        content: "Connection successful!".to_string(),
+    };
+
+    let mut buf = Vec::new();
+    encode::write(&mut buf, &validation_msg).unwrap();
+    let _ = socket.write_all(&buf).await;
 
     let mut buffer = vec![0; 1024];
 
-    // Optionally, read data from the client (if needed)
-    match socket.read(&mut buffer).await {
-        Ok(0) => println!("Client disconnected"),
-        Ok(n) => println!("Received: {}", String::from_utf8_lossy(&buffer[..n])),
-        Err(e) => eprintln!("Failed to read from client: {:?}", e),
+    loop {
+        match socket.read(&mut buffer).await {
+            Ok(0) => {
+                println!("Client disconnected");
+                break;
+            }
+            Ok(n) => {
+                if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
+                    println!("Received: {:?}", msg);
+
+                    if let MsgType::Echo = msg.msg_type {
+                        let response = Msg {
+                            msg_type: MsgType::Echo,
+                            content: format!("Echo: {}", msg.content),
+                        };
+                        let mut response_buf = Vec::new();
+                        encode::write(&mut response_buf, &response).unwrap();
+                        let _ = socket.write_all(&response_buf).await;
+                    }
+                }
+            }
+            Err(_) => break,
+        }
     }
 }
 
-async fn send_udp_beacons(active: Arc<AtomicBool>) {
-    // Set the initial beacon interval to 15 seconds
-    let mut interval = tokio::time::interval(Duration::from_secs(15));
+pub async fn send_udp_beacons(
+    active: Arc<AtomicBool>,
+    settings: Arc<RwLock<HashMap<String, String>>>,
+) {
+    let settings = settings.read().await;
+    let beacon_addr = settings["udp_broadcast_addr"].clone();
+    let initial_interval: u64 = settings["udp_initial_interval"].parse().unwrap();
+    let long_term_interval: u64 = settings["udp_long_term_interval"].parse().unwrap();
+
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
-    let beacon_addr = "127.0.0.1:12345"; // UDP server address
+    socket.set_broadcast(true).unwrap();
+
+    let mut ticker = interval(Duration::from_secs(initial_interval));
+
+    for _ in 0..15 {
+        if !active.load(Ordering::Relaxed) {
+            return;
+        }
+        send_udp_message(&socket, &beacon_addr).await;
+        ticker.tick().await;
+    }
+
+    let mut long_term_ticker = interval(Duration::from_secs(long_term_interval));
 
     loop {
-        if active.load(Ordering::Relaxed) {
-            // Send the beacon message
-            let beacon_message = b"UDP Beacon - Hello from server!";
-            if let Err(e) = socket.send_to(beacon_message, beacon_addr).await {
-                eprintln!("Failed to send UDP beacon: {:?}", e);
-            } else {
-                println!("Sent UDP beacon to {}", beacon_addr);
-            }
-            
-            // Change the interval after 15 seconds to send every 60 seconds
-            interval.tick().await;
-            sleep(Duration::from_secs(60)).await;
-        } else {
-            break; // If beaconing is no longer active, stop
+        if !active.load(Ordering::Relaxed) {
+            break;
         }
+        send_udp_message(&socket, &beacon_addr).await;
+        long_term_ticker.tick().await;
+    }
+}
+
+async fn send_udp_message(socket: &UdpSocket, addr: &str) {
+    let beacon_message = b"DISCOVER_SERVER:127.0.0.1:8000";
+    if let Err(e) = socket.send_to(beacon_message, addr).await {
+        eprintln!("Failed to send UDP beacon: {:?}", e);
+    } else {
+        println!("Sent UDP beacon to {}", addr);
     }
 }

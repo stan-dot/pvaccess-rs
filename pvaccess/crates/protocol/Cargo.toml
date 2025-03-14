@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
+redis = "0.29.1"

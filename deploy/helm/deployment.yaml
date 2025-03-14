@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: client
+        image: my-client-image
+        env:
+        - name: CONFIG_PATH
+          value: "/etc/config/client"
+        volumeMounts:
+        - name: config-volume
+          mountPath: "/etc/config"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: client-config

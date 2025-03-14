@@ -1,47 +1,62 @@
+use config::{Config, File};
+use protocol::{Msg, MsgType};
 use rmp_serde::{decode, encode};
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::env;
 use std::str;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UdpSocket};
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Msg {
-    msg_type: String,
-    content: String,
-}
-
 #[tokio::main]
 async fn main() {
-    // 1️⃣ Discover TCP server via UDP beacon
-    let server_addr = discover_server().await;
-    println!("Connecting to TCP server at {}", server_addr);
+    println!("Looking for a config file...");
 
-    // 2️⃣ Connect to TCP server
+    // 🔹 1️⃣ Determine Config Path
+    let config_path =
+        env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/client/config/client".to_string());
+
+    println!("Loading config from: {}", config_path);
+
+    // 🔹 2️⃣ Load Config
+    let settings = Config::builder()
+        .add_source(File::with_name(&config_path))
+        .build()
+        .expect("Failed to load configuration");
+
+    let network: HashMap<String, String> = settings.get("network").unwrap();
+    let udp_port: u16 = network["udp_port"].parse().unwrap();
+    // let tcp_server: String = network["tcp_server"].clone();
+
+    // 🔹 2️⃣ Discover TCP Server via UDP Beacon
+    let server_addr = discover_server(udp_port).await;
+    println!("Discovered TCP Server: {}", server_addr);
+
+    // 🔹 3️⃣ Connect to the TCP Server
     if let Ok(mut stream) = TcpStream::connect(&server_addr).await {
         println!("Connected to TCP server!");
 
-        // Receive and decode the welcome message
+        // 🔹 4️⃣ Receive and decode the connection validation message
         let mut buffer = vec![0; 1024];
         let n = stream.read(&mut buffer).await.unwrap();
         if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
-            println!("Received: {:?}", msg);
+            println!("Received validation message: {:?}", msg);
         }
 
-        // Send a MessagePack-encoded message
-        let my_msg = Msg {
-            msg_type: "chat".to_string(),
+        // 🔹 5️⃣ Send an Echo Message
+        let echo_msg = Msg {
+            msg_type: MsgType::Echo,
             content: "Hello, Server!".to_string(),
         };
 
         let mut buf = Vec::new();
-        encode::write(&mut buf, &my_msg).unwrap();
+        encode::write(&mut buf, &echo_msg).unwrap();
         stream.write_all(&buf).await.unwrap();
     }
 }
 
-// 🔹 Discover the TCP server via UDP broadcast
-async fn discover_server() -> String {
-    let socket = UdpSocket::bind("0.0.0.0:9999").await.unwrap();
+// 🔹 Discover the TCP Server via UDP
+async fn discover_server(udp_port: u16) -> String {
+    let socket = UdpSocket::bind(("0.0.0.0", udp_port)).await.unwrap();
     let mut buffer = [0; 128];
 
     loop {
