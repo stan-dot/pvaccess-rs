@@ -1,12 +1,12 @@
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
-use tokio::sync::{mpsc, RwLock};
-use tokio::task;
-use tokio::time::{interval, Duration};
-use warp::Filter;
-use std::sync::Arc;
+use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
-use futures::{StreamExt, SinkExt};
+use std::sync::Arc;
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::sync::{RwLock, mpsc};
+use tokio::task;
+use tokio::time::{Duration, interval};
 use tokio_tungstenite::tungstenite::Message;
+use warp::Filter;
 
 #[derive(Clone)]
 struct ServerState {
@@ -42,7 +42,7 @@ async fn handle_tcp_client(mut socket: TcpStream, state: ServerState) {
             println!("Client {} disconnected", client_id);
             break;
         }
-        
+
         let message = String::from_utf8_lossy(&buffer[..n]).to_string();
         println!("TCP Client {} sent: {}", client_id, message);
 
@@ -52,7 +52,9 @@ async fn handle_tcp_client(mut socket: TcpStream, state: ServerState) {
                 let mut clients = state.clients.write().await;
                 clients.insert(client_id.clone(), parts[1].to_string());
 
-                state.broadcast_ws(&format!("{} subscribed to {}", client_id, parts[1])).await;
+                state
+                    .broadcast_ws(&format!("{} subscribed to {}", client_id, parts[1]))
+                    .await;
             }
         }
     }
