@@ -10,16 +10,17 @@
 
 ## next basic step
 
-- [ ] make sure server and client can connect and send confirmation message
+- [x] make sure server and client can connect and send confirmation message
 - [ ] check echo message
 - [ ] check multi client connections
 - [ ] send UUIDs - initialized locally - use HOSTNAME for the pod if right
 
 ## DX 
 
-- [ ] add tests for various scenarios and regression testing
-- [ ] consider cargo make for running tests https://github.com/sagiegurari/cargo-make
-- [ ] test docker-compose for https://github.com/dragonflydb/dragonfly - check out Garry's stuff for this maybe the machine would work after the rebuild
+- [ ] add tests for various scenarios and regression testing - later after the start
+- [ ] add examples dir https://doc.rust-lang.org/cargo/reference/cargo-targets.html
+- [x] consider cargo make for running tests https://github.com/sagiegurari/cargo-make - that is just overkill for now maybe would be useful later.
+- [ ] test docker-compose for https://github.com/dragonflydb/dragonfly - check out Garry's stuff for this maybe the machine would work after the rebuild https://containers.dev/guide/dockerfile
 - [ ] make channels setup with msgpack and redis - and design for arbitrary protocol
 
 ## pvaccess stateless start
