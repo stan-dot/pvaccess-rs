@@ -32,7 +32,7 @@ async fn main() {
     let tcp_addr: String = network["tcp_addr"].clone();
 
     // 🔹 2️⃣ Create a shutdown signal (Ctrl+C)
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let udp_active = Arc::new(AtomicBool::new(true));
     let shared_settings = Arc::new(RwLock::new(network));
 
@@ -54,13 +54,14 @@ async fn main() {
             tokio::spawn(handle_tcp_client(socket));
         }
     });
+    let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
     // 🔹 5️⃣ Wait for shutdown signal
     tokio::select! {
         _ = signal::ctrl_c() => {
             println!("Received shutdown signal, stopping server...");
         }
-        _ = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap().recv() => {
+        _ = terminate_signal.recv() => {
             println!("Received SIGTERM (Kubernetes shutdown), stopping server...");
         }
         _ = shutdown_rx => {
