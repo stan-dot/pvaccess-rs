@@ -1,4 +1,12 @@
 
 [workspace]
 resolver = "2"
-members = [ "crates/client","crates/protocol", "crates/server", "examples/hello",  "tests"]
+members = [
+    "crates/client",
+    "crates/client-lib",
+    "crates/protocol",
+    "crates/server",
+    "examples/hello",
+    "examples/multi_client",
+    "tests",
+]
