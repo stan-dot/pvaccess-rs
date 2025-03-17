@@ -128,23 +128,43 @@ pub async fn send_udp_beacons(
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
     socket.set_broadcast(true).unwrap();
 
+    println!(
+        "UDP beacon started. Initial interval: {}s, then switching to {}s.",
+        initial_interval, long_term_interval
+    );
+
     let mut ticker = interval(Duration::from_secs(initial_interval));
 
-    for _ in 0..15 {
+    for i in 0..15 {
         if !active.load(Ordering::Relaxed) {
+            println!("UDP beacon stopped before interval switch.");
             return;
         }
         send_udp_message(&socket, &beacon_addr).await;
+        println!(
+            "🔹 Sent UDP beacon #{} (every {}s)",
+            i + 1,
+            initial_interval
+        );
         ticker.tick().await;
     }
 
+    println!(
+        "🔄 Switching to long-term beacon interval: {}s",
+        long_term_interval
+    );
     let mut long_term_ticker = interval(Duration::from_secs(long_term_interval));
 
     loop {
         if !active.load(Ordering::Relaxed) {
+            println!("UDP beacon stopped.");
             break;
         }
         send_udp_message(&socket, &beacon_addr).await;
+        println!(
+            "🟢 Sent long-term UDP beacon (every {}s)",
+            long_term_interval
+        );
         long_term_ticker.tick().await;
     }
 }
