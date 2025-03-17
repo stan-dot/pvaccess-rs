@@ -13,7 +13,7 @@
 - [x] make sure server and client can connect and send confirmation message
 - [x] check echo message
 - [ ] check multi client connections
-- [ ] send UUIDs - initialized locally - use HOSTNAME for the pod if right
+- [x] send UUIDs - initialized locally - use HOSTNAME for the pod if right
 
 ## DX 
 

@@ -1,5 +1,6 @@
 use config::{Config, File};
 use std::env;
+use uuid::Uuid;
 
 use protocol::{Msg, MsgType};
 use rmp_serde::{decode, encode};
@@ -18,6 +19,8 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
+    let server_guid = Uuid::new_v4(); // Generates a new GUID on every restart
+    println!("Server GUID: {}", server_guid);
     println!("Looking for a config file...");
     let config_path =
         env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/server/config/server".to_string());
@@ -51,7 +54,8 @@ async fn main() {
             let (socket, addr) = listener.accept().await.unwrap();
             println!("New TCP client connected: {}", addr);
 
-            tokio::spawn(handle_tcp_client(socket));
+            let id_string = server_guid.to_string();
+            tokio::spawn(handle_tcp_client(socket, id_string));
         }
     });
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
@@ -78,10 +82,10 @@ async fn main() {
 }
 
 // 🔹 Handle TCP Client Connection
-async fn handle_tcp_client(mut socket: TcpStream) {
+async fn handle_tcp_client(mut socket: TcpStream, validation_extra: String) {
     let validation_msg = Msg {
         msg_type: MsgType::ConnectionValidation,
-        content: "Connection successful!".to_string(),
+        content: "Connection successful!".to_string() + &validation_extra.to_string(),
     };
 
     let mut buf = Vec::new();

@@ -63,21 +63,39 @@ async fn connect_and_listen(server_addr: String) -> Result<(), String> {
     encode::write(&mut buf, &echo_msg).unwrap();
     stream.write_all(&buf).await.map_err(|e| e.to_string())?;
 
-    // 🔹 Monitor TCP Connection Until Disconnection
-    tokio::select! {
-        _ = wait_for_shutdown() => {
-            println!("Received SIGTERM, exiting...");
-            return Ok(());
-        }
-        res = stream.read(&mut buffer) => {
-            return Err(format!("Server disconnected: {:?}", res));
+    // 🔹 Keep Listening for New Messages
+    loop {
+        tokio::select! {
+            res = stream.read(&mut buffer) => {
+                match res {
+                    Ok(0) => {
+                        println!("Server closed the connection.");
+                        return Err("Server disconnected".into());
+                    }
+                    Ok(n) => {
+                        if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
+                            println!("Received message: {:?}", msg);
+                        } else {
+                            eprintln!("Failed to decode message");
+                        }
+                    }
+                    Err(e) => {
+                        return Err(format!("Read error: {}", e));
+                    }
+                }
+            }
+
+            _ = wait_for_shutdown() => {
+                println!("Received SIGTERM, exiting...");
+                return Ok(());
+            }
         }
     }
 }
 
 // 🔹 Discover the TCP Server via UDP
 async fn discover_server(udp_port: u16) -> String {
-    let socket = UdpSocket::bind(("0.0.0.0", udp_port)).await.unwrap();
+    let socket = UdpSocket::bind(("0.0.0.1", udp_port)).await.unwrap();
     let mut buffer = [0; 128];
 
     loop {
