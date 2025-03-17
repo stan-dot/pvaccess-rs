@@ -51,6 +51,10 @@ async fn main() {
         let mut buf = Vec::new();
         encode::write(&mut buf, &echo_msg).unwrap();
         stream.write_all(&buf).await.unwrap();
+
+        // 🔹 6️⃣ Keep Connection Alive Until SIGTERM
+        println!("Client is now waiting for SIGTERM...");
+        wait_for_shutdown().await;
     }
 }
 
@@ -67,4 +71,12 @@ async fn discover_server(udp_port: u16) -> String {
             }
         }
     }
+}
+
+// 🔹 Wait for SIGTERM before exiting
+async fn wait_for_shutdown() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for SIGINT");
+    println!("Received SIGINT, closing connection.");
 }
