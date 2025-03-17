@@ -6,18 +6,16 @@ use std::env;
 use std::str;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UdpSocket};
+use tokio::time::{Duration, sleep};
 
 #[tokio::main]
 async fn main() {
     println!("Looking for a config file...");
 
-    // 🔹 1️⃣ Determine Config Path
+    // 🔹 1️⃣ Load Config
     let config_path =
         env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/client/config/client".to_string());
-
     println!("Loading config from: {}", config_path);
-
-    // 🔹 2️⃣ Load Config
     let settings = Config::builder()
         .add_source(File::with_name(&config_path))
         .build()
@@ -25,36 +23,55 @@ async fn main() {
 
     let network: HashMap<String, String> = settings.get("network").unwrap();
     let udp_port: u16 = network["udp_port"].parse().unwrap();
-    // let tcp_server: String = network["tcp_server"].clone();
 
-    // 🔹 2️⃣ Discover TCP Server via UDP Beacon
-    let server_addr = discover_server(udp_port).await;
-    println!("Discovered TCP Server: {}", server_addr);
+    // 🔹 2️⃣ Keep Discovering & Reconnecting Loop
+    loop {
+        let server_addr = discover_server(udp_port).await;
+        println!("Discovered TCP Server: {}", server_addr);
 
-    // 🔹 3️⃣ Connect to the TCP Server
-    if let Ok(mut stream) = TcpStream::connect(&server_addr).await {
-        println!("Connected to TCP server!");
-
-        // 🔹 4️⃣ Receive and decode the connection validation message
-        let mut buffer = vec![0; 1024];
-        let n = stream.read(&mut buffer).await.unwrap();
-        if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
-            println!("Received validation message: {:?}", msg);
+        match connect_and_listen(server_addr).await {
+            Ok(_) => println!("TCP connection ended. Looking for a new server..."),
+            Err(e) => eprintln!("Connection error: {}. Retrying discovery...", e),
         }
 
-        // 🔹 5️⃣ Send an Echo Message
-        let echo_msg = Msg {
-            msg_type: MsgType::Echo,
-            content: "Hello, Server!".to_string(),
-        };
+        // 🔹 Wait before retrying (avoid excessive spam)
+        sleep(Duration::from_secs(5)).await;
+    }
+}
 
-        let mut buf = Vec::new();
-        encode::write(&mut buf, &echo_msg).unwrap();
-        stream.write_all(&buf).await.unwrap();
+// 🔹 3️⃣ Connect to TCP & Listen for SIGTERM or Disconnection
+async fn connect_and_listen(server_addr: String) -> Result<(), String> {
+    let mut stream = TcpStream::connect(&server_addr)
+        .await
+        .map_err(|e| e.to_string())?;
+    println!("Connected to TCP server!");
 
-        // 🔹 6️⃣ Keep Connection Alive Until SIGTERM
-        println!("Client is now waiting for SIGTERM...");
-        wait_for_shutdown().await;
+    // 🔹 Receive connection validation message
+    let mut buffer = vec![0; 1024];
+    let n = stream.read(&mut buffer).await.map_err(|e| e.to_string())?;
+    if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
+        println!("Received validation message: {:?}", msg);
+    }
+
+    // 🔹 Send an Echo Message
+    let echo_msg = Msg {
+        msg_type: MsgType::Echo,
+        content: "Hello, Server!".to_string(),
+    };
+
+    let mut buf = Vec::new();
+    encode::write(&mut buf, &echo_msg).unwrap();
+    stream.write_all(&buf).await.map_err(|e| e.to_string())?;
+
+    // 🔹 Monitor TCP Connection Until Disconnection
+    tokio::select! {
+        _ = wait_for_shutdown() => {
+            println!("Received SIGTERM, exiting...");
+            return Ok(());
+        }
+        res = stream.read(&mut buffer) => {
+            return Err(format!("Server disconnected: {:?}", res));
+        }
     }
 }
 
