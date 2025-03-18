@@ -95,7 +95,10 @@ async fn connect_and_listen(server_addr: String) -> Result<(), String> {
 
 // 🔹 Discover the TCP Server via UDP
 async fn discover_server(udp_port: u16) -> String {
-    let socket = UdpSocket::bind(("0.0.0.1", udp_port)).await.unwrap();
+    println!("trying to discover server at port {}", udp_port);
+    let socket = UdpSocket::bind(("255.255.255.255", udp_port))
+        .await
+        .unwrap();
     let mut buffer = [0; 128];
 
     loop {
