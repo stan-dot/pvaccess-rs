@@ -12,6 +12,7 @@ regex = "1.11.1"
 tokio = { version = "1.44.0", features = ["full"] }
 async-trait = "0.1.88"
 bincode = "2.0.1"
+byteorder = "1.5.0"
 
 [features]
 with_msgpack_memory = []

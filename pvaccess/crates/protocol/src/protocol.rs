@@ -1,7 +1,5 @@
 use async_trait::async_trait;
 use std::any::Any;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[async_trait]
 pub trait Protocol: Send + Sync {
