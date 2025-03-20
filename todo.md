@@ -12,41 +12,37 @@
 - [x] make sure server and client can connect and send confirmation message
 - [x] check echo message
 - [x] send UUIDs - initialized locally - use HOSTNAME for the pod if right
-- [ ] check multi client connections
+- [x] check multi client connections - yeah should work not necessarily from one host for TCP
 
 ## DX
 
 - [x] add examples dir <https://doc.rust-lang.org/cargo/reference/cargo-targets.html> - just binaries in examples is fair enough, idk why it doesn't work but I won't let this stop me
 - [x] consider cargo make for running tests <https://github.com/sagiegurari/cargo-make> - that is just overkill for now maybe would be useful later.
+- [x] define the pvaccess protocol in a separate package and feature, so msgpack as one, and pvaccess as another
 - [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly> - check out Garry's stuff for this maybe the machine would work after the rebuild <https://containers.dev/guide/dockerfile> - that's only if we need that database really. maybe using sensible data structures inside the program would be enough? but statelessness
 - [ ] make channels setup with msgpack and redis - and design for arbitrary protocol - yeah add the cfg feature setup for many protocols
 - [ ] add tests for various scenarios and regression testing - later after the start
+- [ ] TUI visualization - could be just a redis client tbh - that's the smart way about it
+- [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools>
 
 ## pvaccess stateless start
 
-- [ ] define the pvaccess protocol in a separate package and feature, so msgpack as one, and pvaccess as another
-
 - [ ] Protocol Messages - start
-  - [ ] Message Header - easy just 4 bytes and an int
+  - [ ] Message Header - easy just 4 bytes and an int - 8 in total tbh
 
 - [ ] easy messages to start with
   - [ ] Beacon (0x00)
   - [ ] Connection validation (0x01)
-  - [ ] Echo (0x02)
+  - [ ] Echo (0x02) - with arbitrary bytes
   - [ ] Message (0x12)  - human readable into the client - start with this one
-
-- [ ] Control Messages  - easy part
-  - [ ] Echo request (0x03) - diagnostic
-  - [ ] Echo response (0x04) - diagnostic response
 
 - [ ] application messages - UDP discovery
   - [ ] Search request (0x03)
   - [ ] Search response (0x04)
 
-## channel CRUD stuff - from Application Messages - by here need redis
+## channel CRUD stuff - from Application Messages - by here need redis - let's just write in memory for concept simplicity and make the redis-backed version later
 
-- [ ] Search request (0x03)
-- [ ] Search response (0x04)
+
 - [ ] Create channel (0x07) - must make an equivalent to json-schema.
 - [ ] Destroy channel (0x08)
 - [ ] Channel get (0x0A)
@@ -72,10 +68,11 @@
 
 - [ ] Channel array (0x0E)  - some multiple values setup, idk
 - [ ] will need a queue for it,
-  - [ ] Channel RPC (0x14)  
+  - [ ] Channel RPC (0x14)   - init and other requests
 - [ ] Channel process (0x10) - execute code associated with the channel?? weird, similar to RPC
 
-### after the grafana - kafka discussion
+## not sure
 
-- [ ] TUI visualization
-- [ ] REACT visualization iff websockets
+- [ ] Control Messages  - easy part- not sure what that means
+  - [ ] Echo request (0x03) - diagnostic
+  - [ ] Echo response (0x04) - diagnostic response

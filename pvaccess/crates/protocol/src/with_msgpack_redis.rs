@@ -29,9 +29,9 @@ impl Header {
     }
 }
 
-pub struct WithMsgPack;
+pub struct WithMsgPackRedis;
 
-impl WithMsgPack {
+impl WithMsgPackRedis {
     pub fn process_bytes(&self, bytes: Vec<u8>) -> Result<(), String> {
         // read first 6 bytes to get the header
         let header = Header::from_bytes(&bytes[0..6]);
@@ -84,7 +84,6 @@ pub struct ChannelResponse {
     pub message: String,
 }
 
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum MsgType {
