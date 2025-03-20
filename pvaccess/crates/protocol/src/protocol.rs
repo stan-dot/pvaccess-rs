@@ -1,6 +1,10 @@
+use async_trait::async_trait;
 use std::any::Any;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-pub trait Protocol {
+#[async_trait]
+pub trait Protocol: Send + Sync {
     /// 🔹 Generate a UDP discovery message
     fn discover_message(&self) -> Vec<u8>;
 
@@ -8,11 +12,17 @@ pub trait Protocol {
     fn parse_header(&self, data: &[u8]) -> Result<Box<dyn Any>, String>;
 
     /// 🔹 Create a new channel
-    fn create_channel(&mut self, name: &str) -> bool;
+    async fn create_channel(&self, name: &str) -> bool;
 
     /// 🔹 Delete a channel
-    fn delete_channel(&mut self, name: &str) -> bool;
+    async fn delete_channel(&self, name: &str) -> bool;
 
     /// 🔹 List all active channels
-    fn list_channels(&self) -> Vec<String>;
+    async fn list_channels(&self) -> Vec<String>;
+
+    /// 🔹 Add a message to a channel
+    async fn channel_put(&self, channel_name: &str, message: String) -> bool;
+
+    /// 🔹 Retrieve messages from a channel
+    async fn channel_get(&self, channel_name: &str, limit: usize) -> Vec<String>;
 }

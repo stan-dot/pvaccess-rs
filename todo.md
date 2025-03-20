@@ -55,6 +55,9 @@
 
 ### cherry on the top
 
+
+- [ ] add tracing
+
 - [ ] Application Messages  - miscellanea
   - [ ] Destroy request (0xF) - what is the difference from cancel request? request instance not pending request. they have the same signature though
   - [ ] Cancel request (0x15)  - just the same almost
