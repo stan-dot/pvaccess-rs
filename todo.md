@@ -20,10 +20,11 @@
 - [x] consider cargo make for running tests <https://github.com/sagiegurari/cargo-make> - that is just overkill for now maybe would be useful later.
 - [x] define the pvaccess protocol in a separate package and feature, so msgpack as one, and pvaccess as another
 - [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly> - check out Garry's stuff for this maybe the machine would work after the rebuild <https://containers.dev/guide/dockerfile> - that's only if we need that database really. maybe using sensible data structures inside the program would be enough? but statelessness
-- [ ] make channels setup with msgpack and redis - and design for arbitrary protocol - yeah add the cfg feature setup for many protocols
-- [ ] add tests for various scenarios and regression testing - later after the start
+- [x] make channels setup with msgpack - and design for arbitrary protocol - yeah add the cfg feature setup for many protocols
+- [x] add tests for various scenarios and regression testing - later after the start
 - [ ] TUI visualization - could be just a redis client tbh - that's the smart way about it
 - [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools>
+- [ ] make msgpack - redis setup - make it all work
 
 ## pvaccess stateless start
 
@@ -42,7 +43,6 @@
 
 ## channel CRUD stuff - from Application Messages - by here need redis - let's just write in memory for concept simplicity and make the redis-backed version later
 
-
 - [ ] Create channel (0x07) - must make an equivalent to json-schema.
 - [ ] Destroy channel (0x08)
 - [ ] Channel get (0x0A)
@@ -54,7 +54,6 @@
 ## feels not needed atm
 
 ### cherry on the top
-
 
 - [ ] add tracing
 

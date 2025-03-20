@@ -11,3 +11,12 @@ pub mod with_msgpack_redis;
 
 #[cfg(feature = "with_pvaccess")]
 pub mod with_pvaccess;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_beacon;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_validation;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_echo;
