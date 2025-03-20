@@ -109,9 +109,12 @@ impl Client {
         // Receive initial validation message
         let mut buffer = vec![0; self.buffer_size]; // 🔹 Use buffer size from config
         let n = stream.read(&mut buffer).await.map_err(|e| e.to_string())?;
+
+        #[cfg(feature = "with_msgpack")]
         if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
             println!("🔹 Received validation message: {:?}", msg);
         }
+        // todo add pvaccess react to message
 
         // Send an Echo Message
         let echo_msg = Msg {

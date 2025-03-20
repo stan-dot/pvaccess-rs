@@ -16,6 +16,7 @@ use tokio::{
     sync::{RwLock, oneshot},
     time::{Duration, interval},
 };
+mod redis_client;
 
 #[tokio::main]
 async fn main() {

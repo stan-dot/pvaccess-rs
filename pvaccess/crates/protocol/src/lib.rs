@@ -1,14 +1,5 @@
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "with_msgpack")]
+pub mod with_msgpack;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum MsgType {
-    Echo,
-    ConnectionValidation,
-    Chat,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Msg {
-    pub msg_type: MsgType,
-    pub content: String,
-}
+#[cfg(feature = "with_pvaccess")]
+pub mod with_pvaccess;
