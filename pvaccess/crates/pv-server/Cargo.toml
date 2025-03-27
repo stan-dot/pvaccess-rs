@@ -1,17 +1,14 @@
 [package]
-name = "msg-server"
+name = "pv-server"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+protocol = { path = "../protocol", features = ['with_pvaccess'] }
 tokio = { version = "1.44.0", features = ["full"] }
 bincode = "2.0.1"
-protocol = { path = "../protocol", features = [
-    "with_msgpack_memory",
-    "with_msgpack_redis",
-] }
-
 config = { version = "0.15.11", features = ["toml"] }
 serde = { version = "1.0.219", features = ["derive"] }
 rmp-serde = "1.3.0"
 uuid = { version = "1.16.0", features = ["v4"] }
+redis = "0.29.1"

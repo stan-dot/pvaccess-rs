@@ -19,12 +19,18 @@
 - [x] add examples dir <https://doc.rust-lang.org/cargo/reference/cargo-targets.html> - just binaries in examples is fair enough, idk why it doesn't work but I won't let this stop me
 - [x] consider cargo make for running tests <https://github.com/sagiegurari/cargo-make> - that is just overkill for now maybe would be useful later.
 - [x] define the pvaccess protocol in a separate package and feature, so msgpack as one, and pvaccess as another
-- [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly> - check out Garry's stuff for this maybe the machine would work after the rebuild <https://containers.dev/guide/dockerfile> - that's only if we need that database really. maybe using sensible data structures inside the program would be enough? but statelessness
 - [x] make channels setup with msgpack - and design for arbitrary protocol - yeah add the cfg feature setup for many protocols
 - [x] add tests for various scenarios and regression testing - later after the start
-- [ ] TUI visualization - could be just a redis client tbh - that's the smart way about it
+
+## conjectural and not essential - putting on a backburner for a moment
+- [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly> - check out Garry's stuff for this maybe the machine would work after the rebuild <https://containers.dev/guide/dockerfile> - that's only if we need that database really. maybe using sensible data structures inside the program would be enough? but statelessness - this does not seem to work?
+- [ ] TUI visualization - could be just a redis client tbh - that's the smart way about it - but wait maybe redis is on the network and worse latency - RAM is definitely faster
+- [ ] make msgpack - redis setup - make it all work - might not be needed, as not much state is stored really on the backend
+
+## Friday work package
+- [ ] add client sessions
+- [ ] work through the encoding now - just throw error on unknown types
 - [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools>
-- [ ] make msgpack - redis setup - make it all work
 
 ## pvaccess stateless start
 

@@ -1,3 +1,4 @@
+use crate::pv_echo::{EchoMessage, EchoResponse};
 use crate::pv_validation::{ConnectionValidationRequest, ConnectionValidationResponse};
 use crate::{protocol::Protocol, pv_beacon::BeaconMessage};
 
@@ -197,44 +198,6 @@ impl PVAccess {
         }
     }
 
-    // todo double implemnetation - need to reconcile
-    /// 🔹 Handle a client connection
-    async fn handle_client(mut stream: TcpStream, connections: Arc<Mutex<Vec<TcpStream>>>) {
-        let mut buffer = vec![0; 1024];
-
-        loop {
-            match stream.read(&mut buffer).await {
-                Ok(0) => {
-                    println!("🔹 Client disconnected");
-                    return;
-                }
-                Ok(n) => {
-                    let header = PvAccessHeader::from_bytes(&buffer[..8]).unwrap();
-                    let is_big_endian = header.is_big_endian();
-
-                    match header.message_command {
-                        0x02 => {
-                            let echo_msg =
-                                EchoMessage::from_bytes(&buffer[8..n], is_big_endian).unwrap();
-                            println!("🔹 Received Echo: {:?}", echo_msg);
-
-                            let response = EchoResponse {
-                                repeated_bytes: echo_msg.random_bytes.clone(),
-                            };
-
-                            let response_bytes = response.to_bytes(is_big_endian).unwrap();
-                            stream.write_all(&response_bytes).await.unwrap();
-                        }
-                        _ => println!("⚠️ Unknown message received"),
-                    }
-                }
-                Err(e) => {
-                    eprintln!("❌ Error reading from client: {}", e);
-                    return;
-                }
-            }
-        }
-    }
     /// 🔹 Handle a new client connection
     async fn handle_client(mut stream: TcpStream, connections: Arc<Mutex<Vec<TcpStream>>>) {
         // 1️⃣ Send Connection Validation Request
@@ -251,16 +214,43 @@ impl PVAccess {
         // 2️⃣ Wait for Client's Connection Validation Response
         let mut buffer = vec![0; 1024];
         let n = stream.read(&mut buffer).await.unwrap();
-        let client_response = ConnectionValidationResponse::from_bytes(&buffer[..n]).unwrap();
-        println!("🔹 Client responded: {:?}", client_response);
-
         // Store the connection
         connections.lock().await.push(stream);
+        loop {
+            match stream.read(&mut buffer).await {
+                Ok(0) => {
+                    println!("🔹 Client disconnected");
+                    return;
+                }
+                Ok(n) => {
+                    if let Err(e) = Self::handle_message(&mut stream, &buffer[..n]).await {
+                        eprintln!("❌ Error processing message: {}", e);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ Error reading from client: {}", e);
+                    return;
+                }
+            }
+        }
+    }
+
+    /// 🔹 Process incoming messages
+    async fn handle_message(stream: &mut TcpStream, data: &[u8]) -> Result<(), String> {
+        let header = PvAccessHeader::from_bytes(&data[..8]).map_err(|_| "Invalid header")?;
+        let is_big_endian = header.is_big_endian();
+
+        // todo this is for connection validation - need to remember per-client logic
+        // let client_response = ConnectionValidationResponse::from_bytes(&buffer[..n]).unwrap();
+        // println!("🔹 Client responded: {:?}", client_response);
+        todo!("make this for all the message types - incrementally according to the todo")
+        match header.message_command {
+            0x02 => Self::handle_echo(stream, &data[8..], is_big_endian).await?,
+            _ => println!("⚠️ Unknown message received"),
+        }
+        Ok(())
     }
 }
-
-use protocol_y::header::PvAccessHeader;
-use protocol_y::message::{EchoMessage, EchoResponse};
 
 #[test]
 fn test_echo_message_serialization() {
@@ -290,4 +280,68 @@ fn test_echo_response_serialization() {
     let bytes_be = response.to_bytes(true).unwrap();
     let parsed_be = EchoResponse::from_bytes(&bytes_be, true).unwrap();
     assert_eq!(response.repeated_bytes, parsed_be.repeated_bytes);
+}
+
+#[async_trait]
+pub trait CorePvAccessHandler {
+    // 0x00 page 31 in spec
+    async fn handle_beacon(&self, msg: BeaconMessage);
+    // 0x01 page 33 in spec
+    async fn handle_connection_validation(&self, msg: ConnectionValidationRequest);
+    // 0x02 page 34 in spec
+    async fn handle_echo(&self, msg: EchoMessage);
+    // 0x03 page 35 in spec
+    async fn handle_search_request(&self, msg: SearchRequest);
+    // 0x04 page 36 in spec
+    async fn handle_search_response(&self, msg: SearchResponse);
+}
+
+impl CorePvAccessHandler for PVAccess{
+
+    async fn handle_beacon(&self, msg: BeaconMessage){};
+    async fn handle_connection_validation(&self, msg: ConnectionValidationRequest){};
+
+    async fn handle_echo(&self, msg: EchoMessage){
+        let _ = msg;
+        todo!("implement");
+
+    };
+    async fn handle_search_request(&self, msg: SearchRequest){};
+    async fn handle_search_response(&self, msg: SearchResponse){};
+}
+
+
+#[async_trait]
+pub trait ChannelHandler {
+    // 0x07 page 37
+    async fn handle_create(&self, msg: CreateChannel);
+
+    // 0x08 page 38
+    async fn handle_destroy(&self, msg: DestroyChannel);
+    // 0x0A page 39
+    async fn handle_get(&self, msg: ChannelGet);
+    // 0x0B page 40
+    async fn handle_put(&self, msg: ChannelPut);
+    // 0x0C page 42
+    async fn handle_put_get(&self, msg: ChannelPutGet);
+    // 0x0D page 45
+    async fn handle_monitor(&self, msg: ChannelMonitor);
+    // 0x0E page 47
+    async fn handle_array(&self, msg: ChannelArray);
+}
+
+#[async_trait]
+pub trait AdminHandler {
+    // 0xF page 50
+    async fn handle_destroy_request(&self, msg: DestroyRequest);
+    // 0x10 page 51
+    async fn handle_channel_process(&self, msg: ChannelProcess);
+    // 0x11 page 52
+    async fn handle_get_introspection_data(&self, msg: GetIntrospectionData);
+    // 0x12 page 53
+    async fn handle_message(&self, msg: PvMessage);
+    // 0x14 page 53
+    async fn handle_channel_rpc(&self, msg: ChannelRPC);
+    // 0x15 page 55
+    async fn handle_cancel_request(&self, msg: CancelRequest);
 }

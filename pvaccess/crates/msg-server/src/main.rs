@@ -24,7 +24,7 @@ async fn main() {
     println!("Server GUID: {}", server_guid);
     println!("Looking for a config file...");
     let config_path =
-        env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/server/config/server".to_string());
+        env::var("CONFIG_PATH").unwrap_or_else(|_| "crates/msg-server/config/server".to_string());
     println!("Loading config from: {}", config_path);
     // 🔹 1️⃣ Load Configuration
     let settings = Config::builder()
