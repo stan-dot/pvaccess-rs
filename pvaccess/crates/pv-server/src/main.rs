@@ -1,5 +1,5 @@
 use config::{Config, File};
-use protocol::{pv_beacon::BeaconMessage, pv_validation::{ConnectionValidationRequest, ConnectionValidationResponse}, with_pvaccess::PVAccess};
+use protocol::{client_manager::ClientManager, pv_beacon::BeaconMessage, pv_validation::{ConnectionValidationRequest, ConnectionValidationResponse}, with_pvaccess::PVAccess};
 use redis::io::tcp;
 use std::env;
 use tokio::{
@@ -25,7 +25,7 @@ use tokio::{
     sync::{RwLock, oneshot},
     time::{Duration, interval},
 };
-pub mod cache;
+pub mod websocket;
 
 // todo need similar logic to msg-server:
 // - udp server
@@ -47,6 +47,15 @@ async fn main() {
     let network_settings: HashMap<String, String> = settings.get("network").unwrap();
     let tcp_addr: String = network["tcp_addr"].clone();
 
+
+
+    let manager = Arc::new(ClientManager::new());
+
+    // Start WebSocket server
+    let ws_manager = Arc::clone(&manager);
+    tokio::spawn(start_websocket_server(ws_manager));
+
+
     // 🔹 2️⃣ Create a shutdown signal (Ctrl+C)
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let udp_active = Arc::new(AtomicBool::new(true));
@@ -64,7 +73,10 @@ async fn main() {
     println!("TCP Server running on {}", tcp_addr);
     let tcp_task = tokio::spawn(async move{
         loop{
-            let (socket, addr) = listener.acccept().await.unwrap();
+            let (socket, addr) = loistener.acccept().await.unwrap();
+            let client_manager = Arc::clone(&manager);
+            // todo this line or similar one
+            // tokio::spawn(handle_client(stream, addr, client_manager));
             println!("New TCP client connected: {}", addr);
             let id_string = server_guid.to_string();
             tokio::spawn(handle_tcp_client(socket, id_string));
@@ -165,7 +177,7 @@ pub async fn send_udp_beacons(
 }
 
 
-async  fn handle_tcp_client(mut socket: TcpStream, validation_extra:String){
+async  fn handle_tcp_client(mut socket: TcpStream, validation_extra:String, manager: Arc<ClientManager>){
     let validation_msg = ConnectionValidationRequest{ server_receive_buffer_size: todo!(), server_introspection_registry_max_size: todo!(), auth_nz: todo!() };
 
     let validation_bytes = validation_msg.to_bytes().unwrap();
@@ -176,6 +188,8 @@ async  fn handle_tcp_client(mut socket: TcpStream, validation_extra:String){
         match socket.read(&mut buffer).await {
             Ok(0) => {
                 println!("Client disconnected");
+                // todo add the client socket reference
+                // manager.remove_client("some address")
                 break;
             }
             Ok(n) => {

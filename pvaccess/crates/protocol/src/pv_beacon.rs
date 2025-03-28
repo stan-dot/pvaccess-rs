@@ -57,4 +57,37 @@ impl BeaconMessage {
 
         Ok(buffer)
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut cursor = Cursor::new(bytes);
+
+        let mut guid = [0u8; 12];
+        cursor.read_exact(&mut guid)?;
+
+        let flags = cursor.read_u8()?;
+        let beacon_sequence_id = cursor.read_u8()?;
+        let change_count = cursor.read_u16::<BigEndian>()?;
+        let mut server_address = [0u8; 16];
+        cursor.read_exact(&mut server_address)?;
+        let server_port = cursor.read_u16::<BigEndian>()?;
+
+        let protocol_length = cursor.read_u8()? as usize;
+        let mut protocol_bytes = vec![0u8; protocol_length];
+        cursor.read_exact(&mut protocol_bytes)?;
+        let protocol = String::from_utf8(protocol_bytes)
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
+
+        let server_status_if = cursor.read_u8()?;
+
+        Ok(Self {
+            guid,
+            flags,
+            beacon_sequence_id,
+            change_count,
+            server_address,
+            server_port,
+            protocol,
+            server_status_if,
+        })
+    }
 }

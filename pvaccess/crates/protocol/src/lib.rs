@@ -20,3 +20,17 @@ pub mod pv_validation;
 
 #[cfg(feature = "with_pvaccess")]
 pub mod pv_echo;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod client_manager;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_search;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_admin;
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_channel;
+
+#[cfg(feature = "with_pvaccess")]
+pub mod pv_core;

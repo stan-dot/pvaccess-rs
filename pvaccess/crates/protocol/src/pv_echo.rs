@@ -96,3 +96,33 @@ impl EchoResponse {
         })
     }
 }
+
+#[test]
+fn test_echo_message_serialization() {
+    let message = EchoMessage {
+        random_bytes: vec![1, 2, 3, 4, 5],
+    };
+
+    let bytes_le = message.to_bytes(false).unwrap();
+    let parsed_le = EchoMessage::from_bytes(&bytes_le, false).unwrap();
+    assert_eq!(message.random_bytes, parsed_le.random_bytes);
+
+    let bytes_be = message.to_bytes(true).unwrap();
+    let parsed_be = EchoMessage::from_bytes(&bytes_be, true).unwrap();
+    assert_eq!(message.random_bytes, parsed_be.random_bytes);
+}
+
+#[test]
+fn test_echo_response_serialization() {
+    let response = EchoResponse {
+        repeated_bytes: vec![9, 8, 7, 6, 5],
+    };
+
+    let bytes_le = response.to_bytes(false).unwrap();
+    let parsed_le = EchoResponse::from_bytes(&bytes_le, false).unwrap();
+    assert_eq!(response.repeated_bytes, parsed_le.repeated_bytes);
+
+    let bytes_be = response.to_bytes(true).unwrap();
+    let parsed_be = EchoResponse::from_bytes(&bytes_be, true).unwrap();
+    assert_eq!(response.repeated_bytes, parsed_be.repeated_bytes);
+}

@@ -1,4 +1,8 @@
+use anyhow::{Result, anyhow};
+use bitflags::bitflags;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Cursor, Read, Write};
 use std::io::{Cursor, Result};
 use tokio::io::AsyncReadExt;
 
@@ -56,8 +60,8 @@ impl ConnectionValidationRequest {
 pub struct ConnectionValidationResponse {
     pub client_receive_buffer_size: u32,
     pub client_introspection_registry_max_size: u16,
-    pub connection_qos: u16, // Quality of Service flags
-    pub auth_nz: String,     // Selected authentication plugin
+    pub connection_qos: ConnectionQoS, // 🔹 QoS is now a bitflag enum
+    pub auth_nz: String,               // Selected authentication plugin
 }
 
 impl ConnectionValidationResponse {
@@ -66,7 +70,7 @@ impl ConnectionValidationResponse {
         let mut buffer = Vec::new();
         buffer.write_u32::<BigEndian>(self.client_receive_buffer_size)?;
         buffer.write_u16::<BigEndian>(self.client_introspection_registry_max_size)?;
-        buffer.write_u16::<BigEndian>(self.connection_qos)?;
+        buffer.write_u16::<BigEndian>(self.connection_qos.bits())?;
 
         buffer.write_u8(self.auth_nz.len() as u8)?;
         buffer.extend_from_slice(self.auth_nz.as_bytes());
@@ -79,7 +83,10 @@ impl ConnectionValidationResponse {
         let mut cursor = Cursor::new(bytes);
         let client_receive_buffer_size = cursor.read_u32::<BigEndian>()?;
         let client_introspection_registry_max_size = cursor.read_u16::<BigEndian>()?;
-        let connection_qos = cursor.read_u16::<BigEndian>()?;
+        let connection_qos_bits = cursor.read_u16::<BigEndian>()?;
+
+        let connection_qos = ConnectionQoS::from_bits(connection_qos_bits)
+            .ok_or(anyhow!("Invalid QoS flags: {:#b}", connection_qos_bits))?;
 
         let len = cursor.read_u8()? as usize;
         let mut auth_bytes = vec![0; len];
@@ -93,4 +100,29 @@ impl ConnectionValidationResponse {
             auth_nz,
         })
     }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct ConnectionQoS: u16 {
+        const PRIORITY_MASK      = 0b0000_0000_0111_1111;  // Bits 0-6 (0-100 priority level)
+        const LOW_LATENCY        = 0b0000_0001_0000_0000;  // Bit 8
+        const THROUGHPUT        = 0b0000_0010_0000_0000;  // Bit 9
+        const ENABLE_COMPRESSION = 0b0000_0100_0000_0000;  // Bit 10
+    }
+
+    impl ConnectionQoS {
+        /// 🔹 Extracts the **priority level** (0-100) from the QoS bits.
+        pub fn priority_level(self) -> u8 {
+            (self.bits() & Self::PRIORITY_MASK.bits) as u8
+        }
+
+        /// 🔹 Constructs a QoS with a specific priority (0-100)
+        pub fn with_priority(priority: u8) -> Self {
+            let mut flags = Self::empty();
+            flags.insert(Self::from_bits_truncate(priority as u16));
+            flags
+        }
+    }
+
 }

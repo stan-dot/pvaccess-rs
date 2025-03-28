@@ -34,8 +34,8 @@
 
 ## pvaccess stateless start
 
-- [ ] Protocol Messages - start
-  - [ ] Message Header - easy just 4 bytes and an int - 8 in total tbh
+- [x] Protocol Messages - start
+  - [x] Message Header - easy just 4 bytes and an int - 8 in total tbh
 
 - [ ] easy messages to start with
   - [ ] Beacon (0x00)

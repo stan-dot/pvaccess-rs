@@ -3,3 +3,5 @@ tcp_addr = "0.0.0.0:8000"
 udp_broadcast_addr = "255.255.255.255:9999"
 udp_initial_interval = 15
 udp_long_term_interval = 60
+websocket_address = "127.0.0.1"
+websocket_port = 9001

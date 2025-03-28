@@ -1,6 +1,7 @@
-use crate::pv_echo::{EchoMessage, EchoResponse};
-use crate::pv_validation::{ConnectionValidationRequest, ConnectionValidationResponse};
+use crate::pv_validation::ConnectionValidationRequest;
 use crate::{protocol::Protocol, pv_beacon::BeaconMessage};
+use crate::client_manager::ClientManager;
+
 
 use async_trait::async_trait;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -16,6 +17,7 @@ use tokio::{
 };
 
 use std::io::{Cursor, Result};
+
 
 /// 🔹 `pvAccess` Protocol Header (fixed 8-byte structure)
 #[derive(Debug, Clone, Copy)]
@@ -137,7 +139,7 @@ impl Protocol for PVAccess {
     fn parse_header(&self, data: &[u8]) -> Result<Box<dyn Any>, String> {
         PvAccessHeader::from_bytes(data)
             .map(|h| Box::new(h) as Box<dyn Any>)
-            .map_err(|_| "Failed to parse header".to_string())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to parse header: {}", e)))
     }
 
     async fn create_channel(&self, name: &str) -> bool {
@@ -199,7 +201,7 @@ impl PVAccess {
     }
 
     /// 🔹 Handle a new client connection
-    async fn handle_client(mut stream: TcpStream, connections: Arc<Mutex<Vec<TcpStream>>>) {
+    async fn handle_client(mut stream: TcpStream, connections: Arc<Mutex<Vec<TcpStream>>>, manager: Arc<ClientManager>) {
         // 1️⃣ Send Connection Validation Request
         let validation_request = ConnectionValidationRequest {
             server_receive_buffer_size: 8192,
@@ -220,6 +222,7 @@ impl PVAccess {
             match stream.read(&mut buffer).await {
                 Ok(0) => {
                     println!("🔹 Client disconnected");
+                                    manager.remove_client(&addr).await;
                     return;
                 }
                 Ok(n) => {
@@ -236,10 +239,15 @@ impl PVAccess {
     }
 
     /// 🔹 Process incoming messages
-    async fn handle_message(stream: &mut TcpStream, data: &[u8]) -> Result<(), String> {
+    async fn handle_message(stream: &mut TcpStream, data: &[u8], manager: Arc<ClientManager>) -> Result<(), String> {
         let header = PvAccessHeader::from_bytes(&data[..8]).map_err(|_| "Invalid header")?;
         let is_big_endian = header.is_big_endian();
 
+        // todo implement
+        if !manager.verify_response(&addr, header.message_command).await {
+            println!("⚠️ Unexpected response from {:?}: {:#X}", addr, header.message_command);
+            return Err("Unexpected response".to_string());
+        }
         // todo this is for connection validation - need to remember per-client logic
         // let client_response = ConnectionValidationResponse::from_bytes(&buffer[..n]).unwrap();
         // println!("🔹 Client responded: {:?}", client_response);
@@ -250,98 +258,4 @@ impl PVAccess {
         }
         Ok(())
     }
-}
-
-#[test]
-fn test_echo_message_serialization() {
-    let message = EchoMessage {
-        random_bytes: vec![1, 2, 3, 4, 5],
-    };
-
-    let bytes_le = message.to_bytes(false).unwrap();
-    let parsed_le = EchoMessage::from_bytes(&bytes_le, false).unwrap();
-    assert_eq!(message.random_bytes, parsed_le.random_bytes);
-
-    let bytes_be = message.to_bytes(true).unwrap();
-    let parsed_be = EchoMessage::from_bytes(&bytes_be, true).unwrap();
-    assert_eq!(message.random_bytes, parsed_be.random_bytes);
-}
-
-#[test]
-fn test_echo_response_serialization() {
-    let response = EchoResponse {
-        repeated_bytes: vec![9, 8, 7, 6, 5],
-    };
-
-    let bytes_le = response.to_bytes(false).unwrap();
-    let parsed_le = EchoResponse::from_bytes(&bytes_le, false).unwrap();
-    assert_eq!(response.repeated_bytes, parsed_le.repeated_bytes);
-
-    let bytes_be = response.to_bytes(true).unwrap();
-    let parsed_be = EchoResponse::from_bytes(&bytes_be, true).unwrap();
-    assert_eq!(response.repeated_bytes, parsed_be.repeated_bytes);
-}
-
-#[async_trait]
-pub trait CorePvAccessHandler {
-    // 0x00 page 31 in spec
-    async fn handle_beacon(&self, msg: BeaconMessage);
-    // 0x01 page 33 in spec
-    async fn handle_connection_validation(&self, msg: ConnectionValidationRequest);
-    // 0x02 page 34 in spec
-    async fn handle_echo(&self, msg: EchoMessage);
-    // 0x03 page 35 in spec
-    async fn handle_search_request(&self, msg: SearchRequest);
-    // 0x04 page 36 in spec
-    async fn handle_search_response(&self, msg: SearchResponse);
-}
-
-impl CorePvAccessHandler for PVAccess{
-
-    async fn handle_beacon(&self, msg: BeaconMessage){};
-    async fn handle_connection_validation(&self, msg: ConnectionValidationRequest){};
-
-    async fn handle_echo(&self, msg: EchoMessage){
-        let _ = msg;
-        todo!("implement");
-
-    };
-    async fn handle_search_request(&self, msg: SearchRequest){};
-    async fn handle_search_response(&self, msg: SearchResponse){};
-}
-
-
-#[async_trait]
-pub trait ChannelHandler {
-    // 0x07 page 37
-    async fn handle_create(&self, msg: CreateChannel);
-
-    // 0x08 page 38
-    async fn handle_destroy(&self, msg: DestroyChannel);
-    // 0x0A page 39
-    async fn handle_get(&self, msg: ChannelGet);
-    // 0x0B page 40
-    async fn handle_put(&self, msg: ChannelPut);
-    // 0x0C page 42
-    async fn handle_put_get(&self, msg: ChannelPutGet);
-    // 0x0D page 45
-    async fn handle_monitor(&self, msg: ChannelMonitor);
-    // 0x0E page 47
-    async fn handle_array(&self, msg: ChannelArray);
-}
-
-#[async_trait]
-pub trait AdminHandler {
-    // 0xF page 50
-    async fn handle_destroy_request(&self, msg: DestroyRequest);
-    // 0x10 page 51
-    async fn handle_channel_process(&self, msg: ChannelProcess);
-    // 0x11 page 52
-    async fn handle_get_introspection_data(&self, msg: GetIntrospectionData);
-    // 0x12 page 53
-    async fn handle_message(&self, msg: PvMessage);
-    // 0x14 page 53
-    async fn handle_channel_rpc(&self, msg: ChannelRPC);
-    // 0x15 page 55
-    async fn handle_cancel_request(&self, msg: CancelRequest);
 }
