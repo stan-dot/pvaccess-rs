@@ -61,11 +61,7 @@
 
 ### cherry on the top
 
-- [ ] add tracing
-
-- [ ] Application Messages  - miscellanea
-  - [ ] Destroy request (0xF) - what is the difference from cancel request? request instance not pending request. they have the same signature though
-  - [ ] Cancel request (0x15)  - just the same almost
+- [ ] add tracing - would be easy after setting up the websockets
 
 - [ ] Control Messages  - hard part
   - [ ] Mark Total Byte Sent (0x00) - idk if necessary
@@ -74,10 +70,13 @@
 
 ### beyond MVP
 
-- [ ] Channel array (0x0E)  - some multiple values setup, idk
-- [ ] will need a queue for it,
-  - [ ] Channel RPC (0x14)   - init and other requests
+- [ ] Channel array (0x0E)  - some multiple values setup, unclear
+
+- [ ] Channel RPC (0x14)   - init and other requests
 - [ ] Channel process (0x10) - execute code associated with the channel?? weird, similar to RPC
+- [ ] Application Messages  - miscellanea - that is in regards to rpc
+  - [ ] Destroy request (0xF) - what is the difference from cancel request? request instance not pending request. they have the same signature though
+  - [ ] Cancel request (0x15)  - just the same almost
 
 ## not sure
 

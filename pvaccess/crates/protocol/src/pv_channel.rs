@@ -6,7 +6,7 @@ pub trait ChannelHandler {
     async fn handle_create(&self, msg: CreateChannel);
 
     // 0x08 page 38
-    async fn handle_destroy(&self, msg: DestroyChannel);
+    async fn handle_destroy(&self, msg: DestroyChannelRequest);
     // 0x0A page 39
     async fn handle_get(&self, msg: ChannelGet);
     // 0x0B page 40
@@ -20,3 +20,19 @@ pub trait ChannelHandler {
 }
 
 
+pub struct DestroyChannelRequest{
+    client_channel_id: u32,
+    server_channel_id: u32,
+}
+
+pub struct DestroyChannelResponse{
+    client_channel_id: u32,
+    server_channel_id: u32,
+
+}
+
+pub struct CreateChannelRequest{
+    channels: Vec<{client_channel_id: u32, channel_name:string}>
+
+
+}
