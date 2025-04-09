@@ -1,4 +1,5 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::Read;
 use std::io::{Cursor, Result};
 
 /// 🔹 Echo Message (Sent by Client)

@@ -44,6 +44,11 @@ impl ClientManager {
         let _ = self.broadcaster.send(update);
     }
 
+    /// 🔹 Get a client session by address
+    pub async fn verify_response(&self, word: u8) {
+        todo!("Implement response verification logic")
+    }
+
     /// 🔹 Remove a client session
     pub async fn remove_client(&self, addr: &SocketAddr) {
         let mut clients = self.clients.lock().await;

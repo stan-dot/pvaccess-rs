@@ -1,4 +1,6 @@
-use bincode;
+use bincode::config::Config;
+use std::io::Read;
+use bincode::{self, config, decode_from_slice};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -104,7 +106,15 @@ impl Protocol for WithMsgpackMemory {
     fn parse_header(&self, data: &[u8]) -> Result<Box<dyn Any>, String> {
         // todo make this work
         // let header = Header::from_bytes(&bytes[0..6]);
-        bincode::deserialize::<MessageHeader>(data)
+        // bincode::deserialize::<MessageHeader>(data)
+        let config = bincode::config::standard()
+            // pick one of:
+            .with_big_endian()
+            .with_little_endian()
+            // pick one of:
+            .with_variable_int_encoding()
+            .with_fixed_int_encoding();
+        decode_from_slice(data, config)
             .map(|h| Box::new(h) as Box<dyn Any>)
             .map_err(|_| "Failed to parse header".to_string())
     }

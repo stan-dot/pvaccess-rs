@@ -1,6 +1,7 @@
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 use std::io::{Cursor, Result};
 use uuid::Uuid;
+use std::io::Read;
 
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read, Write};
 
@@ -45,7 +45,8 @@ impl SearchRequest {
         let mut cursor = Cursor::new(bytes);
         let search_sequence_id = cursor.read_u32::<BigEndian>()?;
         let flags = cursor.read_u8()?;
-        cursor.consume(3); // Skip reserved bytes
+        let mut skip_buffer = [0u8; 3];
+        cursor.read_exact(&mut skip_buffer)?; // Skip reserved bytes
 
         let mut response_address = [0u8; 16];
         cursor.read_exact(&mut response_address)?;

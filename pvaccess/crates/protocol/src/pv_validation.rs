@@ -1,9 +1,7 @@
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Cursor, Read, Write};
-use std::io::{Cursor, Result};
+use std::io::{Cursor, Read, Result, Write};
 use tokio::io::AsyncReadExt;
 
 /// 🔹 Connection Validation Request (Sent by Server)
@@ -86,7 +84,7 @@ impl ConnectionValidationResponse {
         let connection_qos_bits = cursor.read_u16::<BigEndian>()?;
 
         let connection_qos = ConnectionQoS::from_bits(connection_qos_bits)
-            .ok_or(anyhow!("Invalid QoS flags: {:#b}", connection_qos_bits))?;
+            .ok_or(anyhow!("Invalid QoS flags: {:#b}", connection_qos_bits)).unwrap();
 
         let len = cursor.read_u8()? as usize;
         let mut auth_bytes = vec![0; len];

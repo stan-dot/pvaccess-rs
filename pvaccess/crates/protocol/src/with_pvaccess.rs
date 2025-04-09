@@ -1,4 +1,5 @@
 use crate::pv_validation::ConnectionValidationRequest;
+use std::io::Read;
 use crate::{protocol::Protocol, pv_beacon::BeaconMessage};
 use crate::client_manager::ClientManager;
 
