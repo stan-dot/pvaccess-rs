@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{
-    pv_beacon::BeaconMessage,
-    pv_echo::EchoMessage,
-    pv_search::{SearchRequest, SearchResponse},
-    pv_validation::ConnectionValidationRequest,
-    with_pvaccess::PVAccess,
+use crate::pvaccess::pv_search::SearchResponse;
+
+use super::{
+    pv_beacon::BeaconMessage, pv_echo::EchoMessage, pv_search::SearchRequest,
+    pv_validation::ConnectionValidationRequest, with_pvaccess::PVAccess,
 };
 
 #[async_trait]

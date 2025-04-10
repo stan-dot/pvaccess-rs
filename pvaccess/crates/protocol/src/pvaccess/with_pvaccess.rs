@@ -1,24 +1,21 @@
-use crate::client_manager::ClientManager;
-use crate::pv_core::CorePvAccessHandler;
-use crate::pv_validation::ConnectionValidationRequest;
-use crate::{protocol::Protocol, pv_beacon::BeaconMessage};
-
-use anyhow::Error;
 use async_trait::async_trait;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::any::Any;
+use std::os::unix::net::SocketAddr;
 use std::sync::Arc;
-// use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::unix::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::Duration;
-use tokio::{
-    net::{UdpSocket, unix::SocketAddr},
-    sync::Mutex,
-    time::interval,
-};
+use tokio::{net::UdpSocket, sync::Mutex, time::interval};
 
 use anyhow::Result as AResult;
 use std::io::{Cursor, Result};
+
+use crate::protocol::Protocol;
+use crate::pvaccess::pv_validation::ConnectionValidationRequest;
+
+use super::client_manager::ClientManager;
+use super::pv_beacon::BeaconMessage;
 
 /// 🔹 `pvAccess` Protocol Header (fixed 8-byte structure)
 #[derive(Debug, Clone, Copy)]
@@ -81,19 +78,21 @@ impl PvAccessHeader {
 
     /// 🔹 Serialize to bytes
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut buffer = Vec::new();
-        buffer.write_u8(self.magic)?;
-        buffer.write_u8(self.version)?;
-        buffer.write_u8(self.flags)?;
-        buffer.write_u8(self.message_command)?;
+        {
+            use byteorder::WriteBytesExt;
+            let mut buffer = Vec::new();
+            buffer.write_u8(self.magic)?;
+            buffer.write_u8(self.version)?;
+            buffer.write_u8(self.flags)?;
+            buffer.write_u8(self.message_command)?;
 
-        if self.flags & 0b1000_0000 != 0 {
-            buffer.write_u32::<BigEndian>(self.payload_size)?;
-        } else {
-            buffer.write_u32::<LittleEndian>(self.payload_size)?;
+            if self.flags & 0b1000_0000 != 0 {
+                buffer.write_u32::<BigEndian>(self.payload_size)?;
+            } else {
+                buffer.write_u32::<LittleEndian>(self.payload_size)?;
+            }
+            Ok(buffer)
         }
-
-        Ok(buffer)
     }
 
     /// 🔹 Check if message is segmented
@@ -197,10 +196,16 @@ impl PVAccess {
         let listener = TcpListener::bind(addr).await.unwrap();
         println!("🔗 Server listening on {}", addr);
 
+        // let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
         while let Ok((stream, _)) = listener.accept().await {
             println!("🔹 New client connected");
             let connections = Arc::clone(&self.connections);
-            tokio::spawn(Self::handle_client(stream, connections));
+            let manager = Arc::new(ClientManager {
+                clients: todo!(),
+                broadcaster: todo!(),
+            });
+            let address: SocketAddr = addr.parse().unwrap();
+            tokio::spawn(Self::handle_client(stream, connections, manager, addr));
         }
     }
 
@@ -209,7 +214,7 @@ impl PVAccess {
         mut stream: TcpStream,
         connections: Arc<Mutex<Vec<TcpStream>>>,
         manager: Arc<ClientManager>,
-        addr: &str,
+        addr: SocketAddr,
     ) {
         // 1️⃣ Send Connection Validation Request
         let validation_request = ConnectionValidationRequest {
@@ -218,30 +223,33 @@ impl PVAccess {
             auth_nz: vec!["none".into()], // No authentication for now
         };
 
-        let request_bytes = validation_request.to_bytes().unwrap();
-        stream.write_all(&request_bytes).await.unwrap();
-        println!("✅ Sent connection validation request");
+        {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            let request_bytes = validation_request.to_bytes().unwrap();
+            stream.write_all(&request_bytes).await.unwrap();
+            println!("✅ Sent connection validation request");
 
-        // 2️⃣ Wait for Client's Connection Validation Response
-        let mut buffer = vec![0; 1024];
-        let n = stream.read(&mut buffer).await.unwrap();
-        // Store the connection
-        connections.lock().await.push(stream);
-        loop {
-            match stream.read(&mut buffer).await {
-                Ok(0) => {
-                    println!("🔹 Client disconnected");
-                    manager.remove_client(&addr).await;
-                    return;
-                }
-                Ok(n) => {
-                    if let Err(e) = Self::handle_message(&mut stream, &buffer[..n]).await {
-                        eprintln!("❌ Error processing message: {}", e);
+            // 2️⃣ Wait for Client's Connection Validation Response
+            let mut buffer = vec![0; 1024];
+            let n = stream.read(&mut buffer).await.unwrap();
+            // Store the connection
+            connections.lock().await.push(stream);
+            loop {
+                match stream.read(&mut buffer).await {
+                    Ok(0) => {
+                        println!("🔹 Client disconnected");
+                        manager.remove_client(&addr).await;
+                        return;
                     }
-                }
-                Err(e) => {
-                    eprintln!("❌ Error reading from client: {}", e);
-                    return;
+                    Ok(n) => {
+                        if let Err(e) = Self::handle_message(&mut stream, &buffer[..n]).await {
+                            eprintln!("❌ Error processing message: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Error reading from client: {}", e);
+                        return;
+                    }
                 }
             }
         }

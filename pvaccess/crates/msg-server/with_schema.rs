@@ -1,10 +1,10 @@
+use jsonschema::{CompilationError, JSONSchema};
+use serde_json::Value;
+use shared::{Channel, ChannelMetadata, ChannelRequest, ChannelResponse};
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use tokio::sync::RwLock;
-use serde_json::Value;
-use jsonschema::{JSONSchema, CompilationError};
-use shared::{Channel, ChannelRequest, ChannelResponse, ChannelMetadata};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 struct ServerState {
@@ -24,13 +24,19 @@ impl ServerState {
         match request.action.as_str() {
             "create" => {
                 if channels.contains_key(&request.name) {
-                    return ChannelResponse { success: false, message: "Channel already exists".into() };
+                    return ChannelResponse {
+                        success: false,
+                        message: "Channel already exists".into(),
+                    };
                 }
 
                 if let Some(schema) = &request.schema {
                     // Validate if schema itself is correct
                     if JSONSchema::compile(schema).is_err() {
-                        return ChannelResponse { success: false, message: "Invalid JSON Schema".into() };
+                        return ChannelResponse {
+                            success: false,
+                            message: "Invalid JSON Schema".into(),
+                        };
                     }
 
                     let channel = Channel {
@@ -42,9 +48,15 @@ impl ServerState {
                     };
 
                     channels.insert(request.name.clone(), channel);
-                    return ChannelResponse { success: true, message: "Channel created successfully".into() };
+                    return ChannelResponse {
+                        success: true,
+                        message: "Channel created successfully".into(),
+                    };
                 } else {
-                    return ChannelResponse { success: false, message: "Missing schema".into() };
+                    return ChannelResponse {
+                        success: false,
+                        message: "Missing schema".into(),
+                    };
                 }
             }
             "publish" => {
@@ -57,26 +69,47 @@ impl ServerState {
                             }
                             channel.messages.push_back(message.clone());
 
-                            return ChannelResponse { success: true, message: "Message accepted".into() };
+                            return ChannelResponse {
+                                success: true,
+                                message: "Message accepted".into(),
+                            };
                         } else {
-                            return ChannelResponse { success: false, message: "Message failed schema validation".into() };
+                            return ChannelResponse {
+                                success: false,
+                                message: "Message failed schema validation".into(),
+                            };
                         }
                     } else {
-                        return ChannelResponse { success: false, message: "No message provided".into() };
+                        return ChannelResponse {
+                            success: false,
+                            message: "No message provided".into(),
+                        };
                     }
                 } else {
-                    return ChannelResponse { success: false, message: "Channel not found".into() };
+                    return ChannelResponse {
+                        success: false,
+                        message: "Channel not found".into(),
+                    };
                 }
             }
             "metadata" => {
                 if let Some(channel) = channels.get(&request.name) {
                     let metadata_str = format!("{:?}", channel.metadata);
-                    return ChannelResponse { success: true, message: metadata_str };
+                    return ChannelResponse {
+                        success: true,
+                        message: metadata_str,
+                    };
                 } else {
-                    return ChannelResponse { success: false, message: "Channel not found".into() };
+                    return ChannelResponse {
+                        success: false,
+                        message: "Channel not found".into(),
+                    };
                 }
             }
-            _ => ChannelResponse { success: false, message: "Invalid action".into() },
+            _ => ChannelResponse {
+                success: false,
+                message: "Invalid action".into(),
+            },
         }
     }
 }
