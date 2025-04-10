@@ -4,6 +4,9 @@ pub mod protocol;
 pub mod with_msgpack_memory;
 
 #[cfg(feature = "with_msgpack_memory")]
+pub mod msgpack_msg_types;
+
+#[cfg(feature = "with_msgpack_memory")]
 mod memory_channel;
 
 #[cfg(feature = "with_msgpack_redis")]

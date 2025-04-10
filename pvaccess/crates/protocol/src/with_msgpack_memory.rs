@@ -1,6 +1,4 @@
-use bincode::config::Config;
-use std::io::Read;
-use bincode::{self, config, decode_from_slice};
+use bincode::{self, decode_from_slice};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -103,7 +101,7 @@ impl Protocol for WithMsgpackMemory {
         b"DISCOVER_X_MEMORY".to_vec()
     }
 
-    fn parse_header(&self, data: &[u8]) -> Result<Box<dyn Any>, String> {
+    fn parse_header(&self, data: &[u8]) -> Box<(dyn Any + 'static)> {
         // todo make this work
         // let header = Header::from_bytes(&bytes[0..6]);
         // bincode::deserialize::<MessageHeader>(data)
@@ -114,9 +112,12 @@ impl Protocol for WithMsgpackMemory {
             // pick one of:
             .with_variable_int_encoding()
             .with_fixed_int_encoding();
-        decode_from_slice(data, config)
-            .map(|h| Box::new(h) as Box<dyn Any>)
-            .map_err(|_| "Failed to parse header".to_string())
+        let decoded = decode_from_slice(data, config).unwrap();
+        println!("decoded output, {:?}", decoded);
+        todo!("write out more here");
+        // decode_from_slice(data, config)
+        //     .map(|h| Box::new(h) as Box<dyn Any>)
+        //     .map_err(|_| "Failed to parse header".to_string())
     }
 
     async fn create_channel(&self, name: &str) -> bool {

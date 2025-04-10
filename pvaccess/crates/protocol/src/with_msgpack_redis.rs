@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::VecDeque;
 
+use crate::msgpack_msg_types::{ChatMessage, ConnectionValidationRequest, EchoMessage};
+
 struct Header {
     version: u8,
     msg_type: u8,
@@ -38,17 +40,21 @@ impl WithMsgPackRedis {
         match header.msg_type {
             0 => {
                 // Echo
-                let msg = rmp_serde::from_slice(&bytes[6..]).unwrap();
-                println!("Echo: {}", msg.content);
+                let msg = rmp_serde::from_slice::<EchoMessage>(&bytes[7..]).unwrap();
+                println!("Echo length: {}", msg.random_bytes.len());
             }
             1 => {
                 // ConnectionValidation
-                let msg = rmp_serde::from_slice(&bytes[6..]).unwrap();
-                println!("ConnectionValidation: {}", msg.content);
+                let msg =
+                    rmp_serde::from_slice::<ConnectionValidationRequest>(&bytes[7..]).unwrap();
+                println!(
+                    "ConnectionValidation server introspection registry max size: {}",
+                    msg.server_introspection_registry_max_size
+                );
             }
             2 => {
                 // Chat
-                let msg = rmp_serde::from_slice(&bytes[6..]).unwrap();
+                let msg = rmp_serde::from_slice::<ChatMessage>(&bytes[7..]).unwrap();
                 println!("Chat: {}", msg.content);
             }
             _ => {
@@ -83,7 +89,6 @@ pub struct ChannelResponse {
     pub success: bool,
     pub message: String,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum MsgType {

@@ -23,11 +23,12 @@
 - [x] add tests for various scenarios and regression testing - later after the start
 
 ## conjectural and not essential - putting on a backburner for a moment
-- [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly> - check out Garry's stuff for this maybe the machine would work after the rebuild <https://containers.dev/guide/dockerfile> - that's only if we need that database really. maybe using sensible data structures inside the program would be enough? but statelessness - this does not seem to work?
+
+- [ ] test docker-compose for <https://github.com/dragonflydb/dragonfly>
 - [ ] TUI visualization - could be just a redis client tbh - that's the smart way about it - but wait maybe redis is on the network and worse latency - RAM is definitely faster
 - [ ] make msgpack - redis setup - make it all work - might not be needed, as not much state is stored really on the backend
 
-## Friday work package
+## work package
 - [ ] add client sessions
 - [ ] work through the encoding now - just throw error on unknown types - move the todo comments into code comments
 - [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools>

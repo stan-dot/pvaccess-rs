@@ -1,8 +1,9 @@
 use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Cursor, Read, Result, Write};
-use tokio::io::AsyncReadExt;
+// use std::io::{Cursor, Read, Result, Write};
+use std::io::{Cursor, Result};
+// use tokio::io::AsyncReadExt;
 
 /// 🔹 Connection Validation Request (Sent by Server)
 #[derive(Debug, Clone)]
@@ -40,8 +41,11 @@ impl ConnectionValidationRequest {
         let mut auth_nz = Vec::new();
         for _ in 0..auth_count {
             let len = cursor.read_u8().unwrap();
-            let mut auth_bytes = vec![0; len];
-            cursor.read_exact(&mut auth_bytes);
+            let mut auth_bytes = vec![0; len.into()];
+            {
+                use std::io::Read;
+                cursor.read_exact(&mut auth_bytes);
+            }
             auth_nz.push(String::from_utf8(auth_bytes).unwrap());
         }
 
@@ -84,11 +88,15 @@ impl ConnectionValidationResponse {
         let connection_qos_bits = cursor.read_u16::<BigEndian>()?;
 
         let connection_qos = ConnectionQoS::from_bits(connection_qos_bits)
-            .ok_or(anyhow!("Invalid QoS flags: {:#b}", connection_qos_bits)).unwrap();
+            .ok_or(anyhow!("Invalid QoS flags: {:#b}", connection_qos_bits))
+            .unwrap();
 
         let len = cursor.read_u8()? as usize;
         let mut auth_bytes = vec![0; len];
-        cursor.read_exact(&mut auth_bytes)?;
+        {
+            use std::io::Read;
+            cursor.read_exact(&mut auth_bytes)?;
+        }
         let auth_nz = String::from_utf8(auth_bytes).unwrap();
 
         Ok(Self {
@@ -108,19 +116,18 @@ bitflags! {
         const THROUGHPUT        = 0b0000_0010_0000_0000;  // Bit 9
         const ENABLE_COMPRESSION = 0b0000_0100_0000_0000;  // Bit 10
     }
+}
 
-    impl ConnectionQoS {
-        /// 🔹 Extracts the **priority level** (0-100) from the QoS bits.
-        pub fn priority_level(self) -> u8 {
-            (self.bits() & Self::PRIORITY_MASK.bits) as u8
-        }
-
-        /// 🔹 Constructs a QoS with a specific priority (0-100)
-        pub fn with_priority(priority: u8) -> Self {
-            let mut flags = Self::empty();
-            flags.insert(Self::from_bits_truncate(priority as u16));
-            flags
-        }
+impl ConnectionQoS {
+    /// 🔹 Extracts the **priority level** (0-100) from the QoS bits.
+    pub fn priority_level(self) -> u8 {
+        (self.bits() & Self::PRIORITY_MASK.bits()) as u8
     }
 
+    /// 🔹 Constructs a QoS with a specific priority (0-100)
+    pub fn with_priority(priority: u8) -> Self {
+        let mut flags = Self::empty();
+        flags.insert(Self::from_bits_truncate(priority as u16));
+        flags
+    }
 }

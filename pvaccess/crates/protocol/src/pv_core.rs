@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::io::Read;
 
 use crate::{
     pv_beacon::BeaconMessage,
@@ -23,6 +22,7 @@ pub trait CorePvAccessHandler: Send + Sync {
     // async fn handle_search_response(&self, msg: SearchResponse);
 }
 
+#[async_trait]
 impl CorePvAccessHandler for PVAccess {
     async fn handle_beacon(&self, msg: BeaconMessage) {
         println!("🔹 Beacon message received: {:?}", msg);
@@ -30,7 +30,8 @@ impl CorePvAccessHandler for PVAccess {
     }
 
     async fn handle_connection_validation(&self, msg: ConnectionValidationRequest) {
-        println!("🔹 Connection validation request received: ");
+        let _ = msg;
+        println!("🔹 Connection validation request received");
         todo!("make this bigger");
     }
 
@@ -41,8 +42,9 @@ impl CorePvAccessHandler for PVAccess {
     }
 
     async fn handle_search_request(&self, msg: SearchRequest) {
+        let _ = msg;
         println!("Received a search request");
-        let response = SearchResponse {
+        let _response = SearchResponse {
             guid: todo!(),
             search_sequence_id: todo!(),
             server_address: todo!(),
