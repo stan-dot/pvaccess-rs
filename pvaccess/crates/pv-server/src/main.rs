@@ -1,5 +1,4 @@
 use config::{Config, File};
-use protocol::{client_manager::ClientManager, pv_beacon::BeaconMessage, pv_validation::{ConnectionValidationRequest, ConnectionValidationResponse}, with_pvaccess::PVAccess};
 use redis::io::tcp;
 use std::env;
 use tokio::{
@@ -27,10 +26,6 @@ use tokio::{
 };
 pub mod websocket;
 
-// todo need similar logic to msg-server:
-// - udp server
-// tcp stuff
-
 #[tokio::main]
 async fn main() {
     let server_guid = Uuid::new_v4();
@@ -47,14 +42,11 @@ async fn main() {
     let network_settings: HashMap<String, String> = settings.get("network").unwrap();
     let tcp_addr: String = network["tcp_addr"].clone();
 
-
-
     let manager = Arc::new(ClientManager::new());
 
     // Start WebSocket server
     let ws_manager = Arc::clone(&manager);
     tokio::spawn(start_websocket_server(ws_manager));
-
 
     // 🔹 2️⃣ Create a shutdown signal (Ctrl+C)
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -67,19 +59,18 @@ async fn main() {
         send_udp_beacons(udp_active_clone, shared_settings.clone()).await;
     });
 
-
     let listener = TcpListener::bind(&tcp_addr).await.unwrap();
 
     println!("TCP Server running on {}", tcp_addr);
-    let tcp_task = tokio::spawn(async move{
-        loop{
+    let tcp_task = tokio::spawn(async move {
+        loop {
             let (socket, addr) = loistener.acccept().await.unwrap();
             let client_manager = Arc::clone(&manager);
             // todo this line or similar one
             // tokio::spawn(handle_client(stream, addr, client_manager));
             println!("New TCP client connected: {}", addr);
             let id_string = server_guid.to_string();
-            tokio::spawn(handle_tcp_client(socket, id_string));
+            tokio::spawn(handle_tcp_client(socket, id_string, manager));
         }
     });
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
@@ -102,9 +93,6 @@ async fn main() {
     tcp_task.abort(); // Stop accepting new TCP clients
 
     println!("Server shut down gracefully.");
-}
-
-    println!("Hello, world!");
 }
 
 pub async fn send_udp_beacons(
@@ -176,13 +164,19 @@ pub async fn send_udp_beacons(
     }
 }
 
-
-async  fn handle_tcp_client(mut socket: TcpStream, validation_extra:String, manager: Arc<ClientManager>){
-    let validation_msg = ConnectionValidationRequest{ server_receive_buffer_size: todo!(), server_introspection_registry_max_size: todo!(), auth_nz: todo!() };
+async fn handle_tcp_client(
+    mut socket: TcpStream,
+    validation_extra: String,
+    manager: Arc<ClientManager>,
+) {
+    let validation_msg = ConnectionValidationRequest {
+        server_receive_buffer_size: todo!(),
+        server_introspection_registry_max_size: todo!(),
+        auth_nz: todo!(),
+    };
 
     let validation_bytes = validation_msg.to_bytes().unwrap();
     let _ = socket.write_all(&validation_bytes).await;
-
 
     loop {
         match socket.read(&mut buffer).await {
@@ -196,13 +190,13 @@ async  fn handle_tcp_client(mut socket: TcpStream, validation_extra:String, mana
                 // todo change decoding from the bytes one
                 if let Ok(msg) = decode::from_read::<_, Msg>(&buffer[..n]) {
                     println!("Received: {:?}", msg);
-                    // todo decode this correctly 
-                    let validation_response_msg = ConnectionValidationResponse::from_bytes(&msg).unwrap();
+                    // todo decode this correctly
+                    let validation_response_msg =
+                        ConnectionValidationResponse::from_bytes(&msg).unwrap();
                     // todo keep the connection here and enable CRUD messages over the channel pool
                 }
             }
             Err(_) => break,
         }
     }
-    
 }

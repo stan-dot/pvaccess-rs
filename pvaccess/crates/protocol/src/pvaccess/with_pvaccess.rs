@@ -1,17 +1,15 @@
 use async_trait::async_trait;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use std::any::Any;
-use std::os::unix::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::unix::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::Duration;
 use tokio::{net::UdpSocket, sync::Mutex, time::interval};
 
-use anyhow::Result as AResult;
+use anyhow::{Error, Result as AResult};
 use std::io::{Cursor, Result};
 
-use crate::protocol::Protocol;
+use crate::protocol::ProtocolServer;
 use crate::pvaccess::pv_validation::ConnectionValidationRequest;
 
 use super::client_manager::ClientManager;
@@ -27,12 +25,14 @@ pub struct PvAccessHeader {
     pub payload_size: u32,   // Length of payload (non-aligned bytes)
 }
 
+// https://docs.epics-controls.org/en/latest/pv-access/protocol.html#version-2
+// on version
 impl PvAccessHeader {
     /// 🔹 Create a new header
     pub fn new(flags: u8, command: u8, payload_size: u32) -> Self {
         Self {
             magic: 0xCA,
-            version: 1, // TODO: Read from spec for correct version
+            version: 2,
             flags,
             message_command: command,
             payload_size,
@@ -129,18 +129,20 @@ fn test_header_serialization() {
 pub struct PVAccess {
     pub messages: Arc<Mutex<Vec<PvAccessHeader>>>, // Store parsed headers
     pub connections: Arc<Mutex<Vec<TcpStream>>>,   // Store parsed connection addresses
+    channels: Arc<Mutex<Vec<String>>>,             // Store channel names
 }
 
 #[async_trait]
-impl Protocol for PVAccess {
+impl ProtocolServer for PVAccess {
+    type Header = PvAccessHeader;
     fn discover_message(&self) -> Vec<u8> {
         // PvAccessHeader::new(0b0000_0000, 1, 0).to_bytes().unwrap()
         BeaconMessage::new(5076).to_bytes().unwrap()
     }
 
-    fn parse_header(&self, data: &[u8]) -> Box<(dyn Any + 'static)> {
+    fn parse_header(&self, data: &[u8]) -> AResult<PvAccessHeader, Error> {
         let header = PvAccessHeader::from_bytes(data).unwrap();
-        Box::new(header)
+        Ok(header)
         // PvAccessHeader::from_bytes(data)
         //     .map(|h| Box::new(h) as Box<dyn Any>)
         //     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to parse header: {}", e)))
@@ -205,7 +207,7 @@ impl PVAccess {
                 broadcaster: todo!(),
             });
             let address: SocketAddr = addr.parse().unwrap();
-            tokio::spawn(Self::handle_client(stream, connections, manager, addr));
+            tokio::spawn(Self::handle_client(stream, connections, manager, address));
         }
     }
 
@@ -242,7 +244,9 @@ impl PVAccess {
                         return;
                     }
                     Ok(n) => {
-                        if let Err(e) = Self::handle_message(&mut stream, &buffer[..n]).await {
+                        if let Err(e) =
+                            Self::handle_message(&mut stream, &buffer[..n], manager, addr).await
+                        {
                             eprintln!("❌ Error processing message: {}", e);
                         }
                     }

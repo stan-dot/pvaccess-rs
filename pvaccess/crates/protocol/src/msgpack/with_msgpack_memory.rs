@@ -1,18 +1,18 @@
-use bincode::{self, decode_from_slice};
+use anyhow::Error;
+use bincode::{self, Decode, Encode, decode_from_slice};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 use schemars::schema_for;
-use std::any::Any;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::memory_channel::ChannelStore;
-use crate::protocol::Protocol;
+use super::super::protocol::ProtocolServer;
+use super::memory_channel::ChannelStore;
 
 /// 🔹 Message Header (common for all messages)
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Decode, Encode, Serialize, Deserialize, JsonSchema)]
 pub struct MessageHeader {
     pub msg_type: MsgType,
     pub message_id: u32, // Unique ID per message
@@ -20,7 +20,7 @@ pub struct MessageHeader {
 }
 
 /// 🔹 Message Types
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Decode, Encode, Serialize, Deserialize, JsonSchema)]
 pub enum MsgType {
     UdpBeacon,
     TcpConnectionValidation,
@@ -96,12 +96,13 @@ pub struct WithMsgpackMemory {
 }
 
 #[async_trait]
-impl Protocol for WithMsgpackMemory {
+impl ProtocolServer for WithMsgpackMemory {
+    type Header = MessageHeader;
     fn discover_message(&self) -> Vec<u8> {
         b"DISCOVER_X_MEMORY".to_vec()
     }
 
-    fn parse_header(&self, data: &[u8]) -> Box<(dyn Any + 'static)> {
+    fn parse_header(&self, data: &[u8]) -> Result<MessageHeader, Error> {
         // todo make this work
         // let header = Header::from_bytes(&bytes[0..6]);
         // bincode::deserialize::<MessageHeader>(data)
@@ -112,7 +113,7 @@ impl Protocol for WithMsgpackMemory {
             // pick one of:
             .with_variable_int_encoding()
             .with_fixed_int_encoding();
-        let decoded = decode_from_slice(data, config).unwrap();
+        let decoded = decode_from_slice::<MessageHeader, _>(data, config).unwrap();
         println!("decoded output, {:?}", decoded);
         todo!("write out more here");
         // decode_from_slice(data, config)

@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::VecDeque;
 
-use crate::msgpack_msg_types::{ChatMessage, ConnectionValidationRequest, EchoMessage};
+use crate::msgpack::msgpack_msg_types::{ChatMessage, ConnectionValidationRequest, EchoMessage};
+
 
 struct Header {
     version: u8,

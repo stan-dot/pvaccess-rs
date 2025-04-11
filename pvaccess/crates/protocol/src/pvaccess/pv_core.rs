@@ -17,8 +17,6 @@ pub trait CorePvAccessHandler: Send + Sync {
     async fn handle_echo(&self, msg: EchoMessage);
     // 0x03 page 35 in spec
     async fn handle_search_request(&self, msg: SearchRequest);
-    // 0x04 page 36 in spec
-    // async fn handle_search_response(&self, msg: SearchResponse);
 }
 
 #[async_trait]
@@ -40,6 +38,7 @@ impl CorePvAccessHandler for PVAccess {
         todo!("implement immediate response behavior");
     }
 
+    // 0x04 page 36 in spec
     async fn handle_search_request(&self, msg: SearchRequest) {
         let _ = msg;
         println!("Received a search request");

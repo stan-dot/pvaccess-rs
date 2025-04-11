@@ -44,6 +44,8 @@
   - [ ] Echo (0x02) - with arbitrary bytes
   - [ ] Message (0x12)  - human readable into the client - start with this one
 
+  - [ ] todo make the socket address everywhere just a String, just wrap when sending
+
 - [ ] application messages - UDP discovery
   - [ ] Search request (0x03)
   - [ ] Search response (0x04)

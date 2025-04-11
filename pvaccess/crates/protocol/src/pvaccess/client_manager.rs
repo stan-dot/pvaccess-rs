@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::{Mutex, broadcast};
+use tokio::{net::unix::SocketAddr, sync::{broadcast, Mutex}};
 
 /// Represents per-client state
 #[derive(Debug, Serialize, Deserialize, Clone)]
