@@ -38,25 +38,25 @@
 - [x] Protocol Messages - start
   - [x] Message Header - easy just 4 bytes and an int - 8 in total tbh
 
-- [ ] easy messages to start with
-  - [ ] Beacon (0x00)
-  - [ ] Connection validation (0x01)
-  - [ ] Echo (0x02) - with arbitrary bytes
-  - [ ] Message (0x12)  - human readable into the client - start with this one
+- [x] easy messages to start with
+  - [x] Beacon (0x00)
+  - [x] Connection validation (0x01)
+  - [x] Echo (0x02) - with arbitrary bytes
+  - [x] Message (0x12)  - human readable into the client - start with this one
 
-  - [ ] todo make the socket address everywhere just a String, just wrap when sending
+  - [x] todo make the socket address everywhere just a String, just wrap when sending
 
-- [ ] application messages - UDP discovery
-  - [ ] Search request (0x03)
-  - [ ] Search response (0x04)
+- [x] application messages - UDP discovery
+  - [x] Search request (0x03)
+  - [x] Search response (0x04)
 
 ## channel CRUD stuff - from Application Messages - by here need redis - let's just write in memory for concept simplicity and make the redis-backed version later
 
-- [ ] Create channel (0x07) - must make an equivalent to json-schema.
+- [ ] Create channel (0x07) - must make an equivalent to json-schema. - maybe that is feature creep
 - [ ] Destroy channel (0x08)
 - [ ] Channel get (0x0A)
 - [ ] Channel put (0x0B)
-- [ ] Channel put-get (0x0C)
+- [ ] Channel put-get (0x0C) - not for now really
 - [ ] Channel monitor (0x0D)
 - [ ] Get channel type introspection data (0x11) - basic channel meta read
 

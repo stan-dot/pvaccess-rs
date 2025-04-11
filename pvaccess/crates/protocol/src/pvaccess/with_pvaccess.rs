@@ -5,11 +5,14 @@ use tokio::net::unix::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::Duration;
 use tokio::{net::UdpSocket, sync::Mutex, time::interval};
+use uuid::Uuid;
 
 use anyhow::{Error, Result as AResult};
 use std::io::{Cursor, Result};
 
 use crate::protocol::ProtocolServer;
+use crate::pvaccess::pv_admin::AdminHandler;
+use crate::pvaccess::pv_core::CorePvAccessHandler;
 use crate::pvaccess::pv_validation::ConnectionValidationRequest;
 
 use super::client_manager::ClientManager;
@@ -126,18 +129,20 @@ fn test_header_serialization() {
     assert_eq!(header.payload_size, parsed_header.payload_size);
 }
 
-pub struct PVAccess {
+pub struct PVAccessServer {
+    pub uuid: Uuid,
     pub messages: Arc<Mutex<Vec<PvAccessHeader>>>, // Store parsed headers
     pub connections: Arc<Mutex<Vec<TcpStream>>>,   // Store parsed connection addresses
     channels: Arc<Mutex<Vec<String>>>,             // Store channel names
+    server_port: u16,
 }
 
 #[async_trait]
-impl ProtocolServer for PVAccess {
+impl ProtocolServer for PVAccessServer {
     type Header = PvAccessHeader;
     fn discover_message(&self) -> Vec<u8> {
         // PvAccessHeader::new(0b0000_0000, 1, 0).to_bytes().unwrap()
-        BeaconMessage::new(5076).to_bytes().unwrap()
+        BeaconMessage::new(5076, self.uuid).to_bytes().unwrap()
     }
 
     fn parse_header(&self, data: &[u8]) -> AResult<PvAccessHeader, Error> {
@@ -179,12 +184,23 @@ impl ProtocolServer for PVAccess {
     }
 }
 
-impl PVAccess {
+impl PVAccessServer {
+    pub fn new() -> Self {
+        Self {
+            server_port: 5076,
+            uuid: Uuid::new_v4(),
+            messages: Arc::new(Mutex::new(Vec::new())),
+            connections: Arc::new(Mutex::new(Vec::new())),
+            channels: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
     /// 🔹 Start sending UDP beacons every 15 seconds
     pub async fn start_udp_beacons(&self, bind_addr: &str, target_addr: &str) {
         let socket = UdpSocket::bind(bind_addr).await.unwrap();
         let mut interval = interval(Duration::from_secs(15));
-        let beacon = BeaconMessage::new(5076).to_bytes().unwrap();
+        let beacon = BeaconMessage::new(self.server_port, self.uuid)
+            .to_bytes()
+            .unwrap();
 
         loop {
             interval.tick().await;
@@ -194,7 +210,7 @@ impl PVAccess {
         }
     }
     /// 🔹 Start the TCP server and handle connection validation
-    pub async fn start_tcp_server(&self, addr: &str) {
+    pub async fn start_tcp_server(&self, addr: String) {
         let listener = TcpListener::bind(addr).await.unwrap();
         println!("🔗 Server listening on {}", addr);
 
@@ -213,10 +229,11 @@ impl PVAccess {
 
     /// 🔹 Handle a new client connection
     async fn handle_client(
+        &self,
         mut stream: TcpStream,
         connections: Arc<Mutex<Vec<TcpStream>>>,
         manager: Arc<ClientManager>,
-        addr: SocketAddr,
+        addr: String,
     ) {
         // 1️⃣ Send Connection Validation Request
         let validation_request = ConnectionValidationRequest {
@@ -240,12 +257,13 @@ impl PVAccess {
                 match stream.read(&mut buffer).await {
                     Ok(0) => {
                         println!("🔹 Client disconnected");
-                        manager.remove_client(&addr).await;
+                        manager.remove_client(addr).await;
                         return;
                     }
                     Ok(n) => {
-                        if let Err(e) =
-                            Self::handle_message(&mut stream, &buffer[..n], manager, addr).await
+                        if let Err(e) = self
+                            .handle_message(&mut stream, &buffer[..n], manager, &addr)
+                            .await
                         {
                             eprintln!("❌ Error processing message: {}", e);
                         }
@@ -261,6 +279,7 @@ impl PVAccess {
 
     /// 🔹 Process incoming messages
     async fn handle_message(
+        &self,
         stream: &mut TcpStream,
         data: &[u8],
         manager: Arc<ClientManager>,
@@ -272,7 +291,7 @@ impl PVAccess {
         let is_big_endian = header.is_big_endian();
 
         // todo implement
-        let response = manager.verify_response(&addr).await;
+        let response = manager.verify_response(addr.to_string()).await;
         let _m = format!(
             "⚠️ Unexpected response from {:?}: {:#X}",
             addr, header.message_command
@@ -284,6 +303,7 @@ impl PVAccess {
         // println!("🔹 Client responded: {:?}", client_response);
         match header.message_command {
             0x02 => Self::handle_echo(stream, &data[8..]).await?,
+            0x08 => Self::handle_channel_process(&Self, &data[8..]).await,
             _ => println!("⚠️ Unknown message received"),
         }
         todo!("make this for all the message types - incrementally according to the todo");

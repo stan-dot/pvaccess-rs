@@ -1,7 +1,9 @@
-use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
-use std::io::{Cursor, Result};
-use uuid::Uuid;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::env;
 use std::io::Read;
+use std::io::{Cursor, Result};
+use std::net::Ipv4Addr;
+use uuid::Uuid;
 
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
 #[derive(Debug, Clone)]
@@ -18,18 +20,22 @@ pub struct BeaconMessage {
 
 impl BeaconMessage {
     /// 🔹 Create a new beacon message
-    pub fn new(server_port: u16) -> Self {
-        let guid = Uuid::new_v4(); // Generate new GUID for each restart
+    pub fn new(server_port: u16, server_uid: Uuid) -> Self {
         let mut server_address = [0u8; 16];
 
-        // Set IPv4 address as encoded IPv6 (e.g., "::FFFF:192.168.1.1")
-        let ipv4 = [192, 168, 1, 100]; // todo Replace with real address read from Kubernetes
+        // Get IPv4 address from env and parse it
+        let ipv4: Ipv4Addr = env::var("SERVER_IP")
+            .expect("SERVER_IP not set")
+            .parse()
+            .expect("Invalid IPv4 address");
+
         server_address[10] = 0xFF;
         server_address[11] = 0xFF;
-        server_address[12..16].copy_from_slice(&ipv4);
+        // Set IPv4 address as encoded IPv6 (e.g., "::FFFF:192.168.1.1")
+        server_address[12..16].copy_from_slice(&ipv4.octets());
 
         Self {
-            guid: guid.as_bytes()[..12].try_into().unwrap(),
+            guid: server_uid.as_bytes()[..12].try_into().unwrap(),
             flags: 0,
             beacon_sequence_id: 0,
             change_count: 0,
