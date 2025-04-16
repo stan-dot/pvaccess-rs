@@ -1,15 +1,12 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::{
-    net::unix::SocketAddr,
-    sync::{Mutex, broadcast},
-};
+use std::{collections::HashMap, net::SocketAddr};
+use tokio::sync::{Mutex, broadcast};
 
 /// Represents per-client state
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct ClientSession {
-    pub addr: String,
+pub struct ClientSession {
+    pub addr: SocketAddr,
     pub authenticated: bool,
     pub open_channels: Vec<String>,
 }
@@ -30,10 +27,10 @@ impl ClientManager {
     }
 
     /// 🔹 Add a new client session
-    pub async fn add_client(&self, addr: String) {
+    pub async fn add_client(&self, addr: SocketAddr) {
         let mut clients = self.clients.lock().await;
         clients.insert(
-            addr.clone(),
+            addr.to_string(),
             ClientSession {
                 addr,
                 authenticated: false,
@@ -47,13 +44,14 @@ impl ClientManager {
 
     /// 🔹 Get a client session by address
     pub async fn verify_response(&self, word: String) {
+        println!("Verifying response: {}", word);
         todo!("Implement response verification logic")
     }
 
     /// 🔹 Remove a client session
-    pub async fn remove_client(&self, addr: String) {
+    pub async fn remove_client(&self, addr: SocketAddr) {
         let mut clients = self.clients.lock().await;
-        clients.remove(&addr);
+        clients.remove(&addr.to_string());
 
         let update = serde_json::to_string(&clients.values().collect::<Vec<_>>()).unwrap();
         let _ = self.broadcaster.send(update);

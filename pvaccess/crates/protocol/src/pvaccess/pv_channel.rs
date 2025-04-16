@@ -107,7 +107,7 @@ pub struct ChannelMonitorResponseInit{
     subcommand: u8, // 0x04
     status: ResponseCompletionStatus,
     pv_structure_if: Option<String>, // this should be FieldDesc
-};
+}
 
 
 #[async_trait]

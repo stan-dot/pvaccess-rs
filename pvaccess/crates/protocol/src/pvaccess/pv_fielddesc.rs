@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone)]
 pub enum FieldDesc {

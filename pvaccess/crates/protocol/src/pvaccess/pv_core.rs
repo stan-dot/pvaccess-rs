@@ -7,6 +7,7 @@ use super::{
     pv_validation::ConnectionValidationRequest, with_pvaccess::PVAccessServer,
 };
 
+#[derive(Debug)]
 pub enum ResponseCompletionStatusEnum {
     Ok = 0,
     Warning = 1,
@@ -14,6 +15,7 @@ pub enum ResponseCompletionStatusEnum {
     FatalError = 3,
 }
 
+#[derive(Debug)]
 pub struct ResponseCompletionStatus {
     pub response_type: ResponseCompletionStatusEnum,
     pub message: String,
@@ -27,7 +29,7 @@ pub trait CorePvAccessHandler: Send + Sync {
     // 0x01 page 33 in spec
     async fn handle_connection_validation(&self, msg: ConnectionValidationRequest);
     // 0x02 page 34 in spec
-    async fn handle_echo(&self, msg: EchoMessage);
+    async fn handle_echo(&self, bytes: &[u8], is_big_endian: bool) -> EchoResponse;
     // 0x03 page 35 in spec
     async fn handle_search_request(&self, msg: SearchRequest);
 }
@@ -45,12 +47,15 @@ impl CorePvAccessHandler for PVAccessServer {
         todo!("make this bigger");
     }
 
-    async fn handle_echo(&self, msg: EchoMessage) {
+    async fn handle_echo(&self, bytes: &[u8], is_big_endian: bool) -> EchoResponse {
+        println!("🔹 Echo message received: {:?}", bytes);
+        let bytes = EchoMessage::from_bytes(bytes, is_big_endian).unwrap();
         let response = EchoResponse {
-            repeated_bytes: msg.random_bytes.clone(),
+            repeated_bytes: bytes.random_bytes.clone(),
         };
-        println!("🔹 Echo message received: {:?}", msg.random_bytes);
-        todo!("implement immediate response behavior");
+        println!("🔹 Echo message received: {:?}", bytes.random_bytes);
+        println!("🔹 Echo response: {:?}", response);
+        return response;
     }
 
     // 0x04 page 36 in spec

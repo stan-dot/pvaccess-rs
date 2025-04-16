@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::net::unix::SocketAddr;
+use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::Duration;
 use tokio::{net::UdpSocket, sync::Mutex, time::interval};
@@ -132,7 +133,7 @@ fn test_header_serialization() {
 pub struct PVAccessServer {
     pub uuid: Uuid,
     pub messages: Arc<Mutex<Vec<PvAccessHeader>>>, // Store parsed headers
-    pub connections: Arc<Mutex<Vec<TcpStream>>>,   // Store parsed connection addresses
+    pub connections: Arc<Mutex<Vec<SocketAddr>>>,  // Store parsed connection addresses
     channels: Arc<Mutex<Vec<String>>>,             // Store channel names
     server_port: u16,
 }
@@ -212,29 +213,33 @@ impl PVAccessServer {
     /// 🔹 Start the TCP server and handle connection validation
     pub async fn start_tcp_server(&self, addr: String) {
         let listener = TcpListener::bind(addr).await.unwrap();
-        println!("🔗 Server listening on {}", addr);
 
-        // let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        // let standard_socket = StdSocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        let standard_socket: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let address = SocketAddr::from(standard_socket);
         while let Ok((stream, _)) = listener.accept().await {
             println!("🔹 New client connected");
-            let connections = Arc::clone(&self.connections);
-            let manager = Arc::new(ClientManager {
+            // let connections = Arc::clone(&self.connections);
+            let m = ClientManager {
                 clients: todo!(),
                 broadcaster: todo!(),
-            });
-            let address: SocketAddr = addr.parse().unwrap();
-            tokio::spawn(Self::handle_client(stream, connections, manager, address));
+            };
+            let manager = Arc::new(m);
+            let manager_clone = Arc::clone(&manager);
+            tokio::spawn(self.handle_client(stream, manager_clone, address));
         }
     }
 
     /// 🔹 Handle a new client connection
     async fn handle_client(
         &self,
-        mut stream: TcpStream,
-        connections: Arc<Mutex<Vec<TcpStream>>>,
+        stream: TcpStream,
         manager: Arc<ClientManager>,
-        addr: String,
+        addr: SocketAddr,
     ) {
+        // 🔁 Split into owned read/write halves
+        let (mut reader, writer) = stream.into_split();
+        let mut writer = writer; // Declare writer as mutable
         // 1️⃣ Send Connection Validation Request
         let validation_request = ConnectionValidationRequest {
             server_receive_buffer_size: 8192,
@@ -244,25 +249,29 @@ impl PVAccessServer {
 
         {
             use tokio::io::{AsyncReadExt, AsyncWriteExt};
-            let request_bytes = validation_request.to_bytes().unwrap();
-            stream.write_all(&request_bytes).await.unwrap();
+            let validation_request_bytes = validation_request.to_bytes().unwrap();
+            writer.write_all(&validation_request_bytes).await.unwrap();
             println!("✅ Sent connection validation request");
 
             // 2️⃣ Wait for Client's Connection Validation Response
             let mut buffer = vec![0; 1024];
-            let n = stream.read(&mut buffer).await.unwrap();
-            // Store the connection
-            connections.lock().await.push(stream);
+            let n = reader.read(&mut buffer).await.unwrap();
+            // Store the connection - only the name really
+            // connections.lock().await.push(stream);
             loop {
-                match stream.read(&mut buffer).await {
+                match reader.read(&mut buffer).await {
                     Ok(0) => {
                         println!("🔹 Client disconnected");
+                        let manager = Arc::clone(&manager);
                         manager.remove_client(addr).await;
+
+                        // Arc::clone(&manager).remove_client(addr).await;
                         return;
                     }
                     Ok(n) => {
+                        let manager = Arc::clone(&manager);
                         if let Err(e) = self
-                            .handle_message(&mut stream, &buffer[..n], manager, &addr)
+                            .handle_message(&mut writer, &buffer[..n], manager, addr)
                             .await
                         {
                             eprintln!("❌ Error processing message: {}", e);
@@ -280,10 +289,10 @@ impl PVAccessServer {
     /// 🔹 Process incoming messages
     async fn handle_message(
         &self,
-        stream: &mut TcpStream,
+        writer: &mut OwnedWriteHalf,
         data: &[u8],
         manager: Arc<ClientManager>,
-        addr: &str,
+        addr: SocketAddr,
     ) -> AResult<(), anyhow::Error> {
         let header = PvAccessHeader::from_bytes(&data[..8])
             .map_err(|_| "Invalid header")
@@ -302,11 +311,20 @@ impl PVAccessServer {
         // let client_response = ConnectionValidationResponse::from_bytes(&buffer[..n]).unwrap();
         // println!("🔹 Client responded: {:?}", client_response);
         match header.message_command {
-            0x02 => Self::handle_echo(stream, &data[8..]).await?,
-            0x08 => Self::handle_channel_process(&Self, &data[8..]).await,
-            _ => println!("⚠️ Unknown message received"),
+            0x02 => {
+                let response = self.handle_echo(&data[8..], is_big_endian).await;
+                println!("🔹 Echo response: {:?}", response);
+                let b = response.to_bytes(is_big_endian).unwrap();
+                tokio::io::AsyncWriteExt::write_all(writer, &b)
+                    .await
+                    .unwrap();
+            }
+            0x08 => self.handle_channel_process(&data[8..]).await,
+            _ => println!(
+                "⚠️ Unknown message received with command: {:#X}",
+                header.message_command
+            ),
         }
-        todo!("make this for all the message types - incrementally according to the todo");
         Ok(())
     }
 }
