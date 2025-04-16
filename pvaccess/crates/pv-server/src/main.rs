@@ -1,5 +1,4 @@
 use config::{Config, File};
-use redis::io::tcp;
 use std::env;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -10,20 +9,14 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use protocol::{Msg, MsgType};
-use rmp_serde::{decode, encode};
 use std::collections::HashMap;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream, UdpSocket},
-    signal,
-    sync::{RwLock, oneshot},
-    time::{Duration, interval},
-};
+
+use crate::websocket::start_websocket_server;
+use protocol::pvaccess::{client_manager::ClientManager, pv_beacon::BeaconMessage};
 pub mod websocket;
 
 #[tokio::main]
@@ -46,7 +39,8 @@ async fn main() {
 
     // Start WebSocket server
     let ws_manager = Arc::clone(&manager);
-    tokio::spawn(start_websocket_server(ws_manager));
+    let port = 8080; // todo make this configurable
+    tokio::spawn(start_websocket_server(ws_manager, tcp_addr.clone(), port));
 
     // 🔹 2️⃣ Create a shutdown signal (Ctrl+C)
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -111,7 +105,7 @@ pub async fn send_udp_beacons(
         initial_interval, long_term_interval
     );
     let message = BeaconMessage {
-        guid: Uuid::new_v4(), // todo make the guid passed
+        guid: Uuid::new_v4().as_bytes()[..12].try_into().unwrap(), // Truncate to 12 bytes
         flags: 0,
         beacon_sequence_id: todo!(), // todo make this increment as the item changes
         change_count: todo!(),       // every time the list of channels changes

@@ -4,4 +4,4 @@ pub mod protocol;
 mod msgpack;
 
 #[cfg(feature = "with_pvaccess")]
-mod pvaccess;
+pub mod pvaccess;

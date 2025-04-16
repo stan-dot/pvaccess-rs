@@ -1,11 +1,13 @@
 use futures_util::{SinkExt, StreamExt};
+use protocol::pvaccess::client_manager::ClientManager;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 /// Handles an incoming WebSocket connection
-async fn handle_websocket_connection(
+pub async fn handle_websocket_connection(
     raw_stream: TcpStream,
     mut receiver: broadcast::Receiver<String>, // Subscribe to client state updates
 ) {
@@ -15,7 +17,7 @@ async fn handle_websocket_connection(
     let (mut ws_sender, _) = ws_stream.split();
 
     while let Ok(update) = receiver.recv().await {
-        if let Err(_) = ws_sender.send(Message::Text(update)).await {
+        if let Err(_) = ws_sender.send(Message::Text(update.into())).await {
             println!("🔴 Admin client disconnected");
             break;
         }
@@ -23,8 +25,8 @@ async fn handle_websocket_connection(
 }
 
 /// Starts the WebSocket server
-async fn start_websocket_server(manager: Arc<ClientManager>, address: str, port: int) {
-    let url: str = format!("{:?}:{:?}", address, port.toString());
+pub async fn start_websocket_server(manager: Arc<ClientManager>, address: SocketAddr, port: u32) {
+    let url: &str = &format!("{:?}:{:?}", address, port.to_string());
     let listener = TcpListener::bind(url).await.unwrap();
 
     while let Ok((stream, _)) = listener.accept().await {
