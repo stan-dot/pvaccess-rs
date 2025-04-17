@@ -1,17 +1,48 @@
-use crate::state::ServerState;
+use crate::{
+    config::AppConfig,
+    state::{self, ServerState},
+};
 use easy_pv_datatypes::header::PvAccessHeader;
-use std::{net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
     net::{TcpListener, TcpStream},
     signal,
     sync::{Mutex, oneshot},
 };
 
-pub async fn start_server() {
+pub async fn start_server(config: AppConfig) {
+    let initial_server_state = ServerState {
+        feature_state: HashMap::new(),
+    };
+
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
 
+    let ip = config.network.host.to_string() + ":" + &config.network.port.to_string();
+    let listener = TcpListener::bind(ip).await.unwrap();
 
+    let tcp_task = tokio::spawn(async move {
+        loop {
+            let (socket, addr) = listener.accept().await.unwrap();
+            println!("New connection from: {}", addr);
+
+            // todo cloning this is not easy
+            let state = Arc::new(Mutex::new(initial_server_state.clone()));
+            // let state = Arc::new(Mutex::new(ServerState::new()));
+            // let features = Arc::clone(&features);
+
+            tokio::spawn(async move {
+                if let Err(e) = handle_tcp_client(socket, state).await {
+                    eprintln!("Client error: {}", e);
+                }
+            });
+        }
+    });
+
+    let udp_task = tokio::spawn(async move {
+        // Placeholder for UDP task
+        // send_udp_beacons(udp_active_clone, shared_settings.clone()).await;
+    });
     tokio::select! {
         _ = signal::ctrl_c() => {
             println!("Received shutdown signal, stopping server...");
@@ -23,8 +54,13 @@ pub async fn start_server() {
             println!("Shutdown initiated...");
         }
     }
+
+    // Perform Graceful Shutdown
+    udp_task.abort(); // Stop accepting new UDP clients
+    tcp_task.abort(); // Stop accepting new TCP clients
     println!("Server shut down gracefully.");
 }
+
 async fn tcp_server_loop(
     addr: SocketAddr,
     // features: Arc<Vec<Box<dyn Feature>>>,
@@ -37,7 +73,7 @@ async fn tcp_server_loop(
         let (socket, addr) = listener.accept().await?;
         println!("New connection from: {}", addr);
 
-        let features = Arc::clone(&features);
+        // let features = Arc::clone(&features);
         let state = Arc::clone(&state);
 
         tokio::spawn(async move {

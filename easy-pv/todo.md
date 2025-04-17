@@ -3,31 +3,33 @@
 # todo
 
 using the outlining strategy
-- [ ] make 3 new packages with hello world
+- [x] make 3 new packages with hello world
     - [x] make a library for the datatypes
     - [x] binary for client
     - [x] binary for server
     - [x] library for server logic
     - [x] import the server library into the server
     - [x] add a mod file
+    - [x] 4th one for datatypes
 
 - [ ] define the state
   - [x] add the config crate
-  - [ ] set up the features, dictionary inside the main server state
-    - [ ] confirm that the features work
+  - [x] set up the features, dictionary inside the main server state
+    - [x] confirm that the features work - discard them really, no need for runtime feature addition
   - [x] make a full function to extract the settings - no parameters one
   - [x] use oneshot for signal termination
   - [x] read out from the settings
-  - [ ] work out the connection caching
   - [x] divide the settings sensibly`
+  - [ ] work out the connection caching
   - [ ] add try into instead of from_bytes, it's more idiomatic
 - [ ] pass the endianness flag into the handling of the frame
+- [ ] simplify the features parsing really
 - [ ] server parts
   - [x] read the config
   - [ ] start the udp task
   - [ ] start the tcp task and accept for various headers
-  - [ ] add the terminate signal
-  - [ ] construct the terminate logic
+  - [x] add the terminate signal
+  - [x] construct the terminate logic
   - [ ] construct connection validation request
   - [ ] connect the fieldesc
   - [ ] each handler will get typed param and return also type - into bytes is separate
