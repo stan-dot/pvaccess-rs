@@ -1,0 +1,11 @@
+[beacon]
+udp_initial_interval = 15
+udp_long_term_interval = 60
+
+[websocket]
+host = "127.0.0.1"
+port = 9001
+
+[network]
+host = "127.0.0.1"
+port = 8080

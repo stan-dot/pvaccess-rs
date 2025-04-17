@@ -10,8 +10,9 @@ using the outlining strategy
     - [ ] library for server logic
     - [ ] import the server library into the server
     - [ ] add a mod file
+
 - [ ] define the state
-  - [ ] add the config crate
+  - [x] add the config crate
   - [ ] set up the features, dictionary inside the main server state
   - [ ] make a full function to extract the settings - no parameters one
   - [ ] use oneshot for signal termination

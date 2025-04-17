@@ -2,7 +2,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "easy-pv",
+    "easy-pv-datatypes",
+    "easy-pv-lib-server",
     "easy-pv-client",
     "easy-pv-server",
 ]
