@@ -21,7 +21,8 @@ using the outlining strategy
   - [x] read out from the settings
   - [x] divide the settings sensibly`
   - [ ] work out the connection caching
-  - [ ] add try into instead of from_bytes, it's more idiomatic
+  - [ ] add try into instead of from_bytes, it's more idiomatic - do that for the pv_echo copy
+  - [ ] add half socket each as parts
 - [ ] pass the endianness flag into the handling of the frame
 - [ ] simplify the features parsing really
 - [ ] server parts

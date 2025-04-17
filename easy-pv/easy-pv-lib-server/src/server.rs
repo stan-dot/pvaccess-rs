@@ -1,10 +1,12 @@
 use crate::{
     config::AppConfig,
+    features::pv_echo::{EchoMessage, EchoResponse},
     state::{self, ServerState},
 };
 use easy_pv_datatypes::header::PvAccessHeader;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     signal,
     sync::{Mutex, oneshot},
@@ -86,21 +88,44 @@ async fn tcp_server_loop(
 }
 
 async fn handle_tcp_client(
-    mut socket: TcpStream,
+    mut stream: TcpStream,
     // features: Arc<Vec<Box<dyn Feature>>>,
     state: Arc<Mutex<ServerState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = vec![0; 4096];
+    let (mut reader, mut writer) = stream.split();
 
     loop {
-        let n = socket.read(&mut buffer).await?;
+        let n = reader.read(&mut buffer).await?;
         if n == 0 {
             println!("Connection closed");
             return Ok(());
         }
 
-        let header = PvAccessHeader::parse(&buffer[..n])?;
+        const HEADER_LENGTH: usize = 8;
+        let header = PvAccessHeader::from_bytes(&buffer[..HEADER_LENGTH])?;
+        let use_big = header.is_big_endian();
         println!("Received header: {:?}", header);
+        let payload_size = header.payload_size as usize;
+        if (payload_size + HEADER_LENGTH) > buffer.len() {
+            println!("Buffer too small for payload");
+            return Ok(());
+        }
+        let body = &buffer[HEADER_LENGTH..HEADER_LENGTH + payload_size];
+        match header.message_command {
+            0x03 => {
+                println!("Received echo command: {:?}", header);
+                let m = EchoMessage::from_bytes(body, use_big)?;
+                let e = EchoResponse {
+                    repeated_bytes: m.random_bytes.clone(),
+                };
+                println!("Received body: {:?}", body);
+                let response = e.to_bytes(use_big)?;
+                writer.write_all(&response);
+            }
+            _ => (),
+        }
+
         // for feature in features.iter() {
         //     if feature.match_header(&header) {
         //         let mut state_guard = state.lock().unwrap(); // or .await for tokio Mutex
