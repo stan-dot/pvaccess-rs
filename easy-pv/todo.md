@@ -14,11 +14,13 @@ using the outlining strategy
 - [ ] define the state
   - [x] add the config crate
   - [ ] set up the features, dictionary inside the main server state
-  - [ ] make a full function to extract the settings - no parameters one
-  - [ ] use oneshot for signal termination
+    - [ ] confirm that the features work
+  - [x] make a full function to extract the settings - no parameters one
+  - [x] use oneshot for signal termination
   - [x] read out from the settings
   - [ ] work out the connection caching
   - [x] divide the settings sensibly`
+  - [ ] add try into instead of from_bytes, it's more idiomatic
 - [ ] pass the endianness flag into the handling of the frame
 - [ ] server parts
   - [x] read the config
