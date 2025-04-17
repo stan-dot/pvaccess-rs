@@ -1,0 +1,8 @@
+
+[workspace]
+resolver = "2"
+members = [
+    "easy-pv",
+    "easy-pv-client",
+    "easy-pv-server",
+]

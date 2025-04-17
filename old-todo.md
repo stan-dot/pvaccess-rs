@@ -31,7 +31,7 @@
 ## work package
 - [ ] add client sessions
 - [ ] work through the encoding now - just throw error on unknown types - move the todo comments into code comments
-- [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools>
+- [ ] REACT visualization iff websockets - that is strivial if the server is stateless with redis - <https://uibakery.io/blog/redis-gui-tools> - not doing that after all
 
 ## pvaccess stateless start
 

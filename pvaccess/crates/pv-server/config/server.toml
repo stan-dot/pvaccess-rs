@@ -5,3 +5,4 @@ udp_initial_interval = 15
 udp_long_term_interval = 60
 websocket_address = "127.0.0.1"
 websocket_port = 9001
+tcp_port = 8000
