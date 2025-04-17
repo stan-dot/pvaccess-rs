@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 easy-pv-lib-server = { path = "../easy-pv-lib-server" }
+tokio = { version = "1.44.2", features = ["full"] }
