@@ -14,23 +14,33 @@ using the outlining strategy
 
 - [ ] define the state
   - [x] add the config crate
+  - [x] read the config
   - [x] set up the features, dictionary inside the main server state
     - [x] confirm that the features work - discard them really, no need for runtime feature addition
   - [x] make a full function to extract the settings - no parameters one
   - [x] use oneshot for signal termination
   - [x] read out from the settings
   - [x] divide the settings sensibly`
-  - [ ] work out the connection caching
-  - [ ] add try into instead of from_bytes, it's more idiomatic - do that for the pv_echo copy
-  - [ ] add half socket each as parts
+- [x] simplify the features parsing really - yeah just doing manually with the KISS principle, match flag following an enum
+- [x] add the terminate signal
+- [x] construct the terminate logic
+
+
+## For Wed
+- [ ] add a simple client - so that echo will be tested
+- [ ] delete the lib features code
+- [ ] add frame parsing with tokio_util::codec::FramedRead
+- [ ] this should work as a proof of concept
+- [ ] add try into instead of from_bytes, it's more idiomatic - do that for the pv_echo copy
+
+## For later
+- [ ] work out the connection caching
+- [ ] add half socket each as parts
 - [ ] pass the endianness flag into the handling of the frame
-- [ ] simplify the features parsing really
+
 - [ ] server parts
-  - [x] read the config
   - [ ] start the udp task
   - [ ] start the tcp task and accept for various headers
-  - [x] add the terminate signal
-  - [x] construct the terminate logic
   - [ ] construct connection validation request
   - [ ] connect the fieldesc
   - [ ] each handler will get typed param and return also type - into bytes is separate

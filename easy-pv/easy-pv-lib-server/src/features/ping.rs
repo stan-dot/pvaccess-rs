@@ -8,6 +8,25 @@ use crate::{async_feature::Feature, state::ServerState};
 struct PingRequest {
     // Define the fields for the PingRequest
 }
+
+impl TryInto<PingRequest> for &[u8] {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<PingRequest, Self::Error> {
+        // Implement the logic to parse raw bytes into PingRequest
+        PingRequest::from_bytes(self)
+    }
+}
+
+impl TryFrom<&[u8]> for PingRequest {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        PingRequest::from_bytes(value)
+    }
+}
+
+
 impl PingRequest {
     fn from_bytes(raw: &[u8]) -> Result<Self, anyhow::Error> {
         // Implement the logic to parse raw bytes into PingRequest

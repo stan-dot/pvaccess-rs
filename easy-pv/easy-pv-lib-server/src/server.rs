@@ -1,9 +1,9 @@
 use crate::{
     config::AppConfig,
     features::pv_echo::{EchoMessage, EchoResponse},
-    state::{self, ServerState},
+    state::ServerState,
 };
-use easy_pv_datatypes::header::PvAccessHeader;
+use easy_pv_datatypes::header::{Command, PvAccessHeader};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -107,13 +107,14 @@ async fn handle_tcp_client(
         let use_big = header.is_big_endian();
         println!("Received header: {:?}", header);
         let payload_size = header.payload_size as usize;
-        if (payload_size + HEADER_LENGTH) > buffer.len() {
-            println!("Buffer too small for payload");
-            return Ok(());
+
+        if payload_size + HEADER_LENGTH > buffer.len() {
+            buffer.resize(payload_size + HEADER_LENGTH, 0);
         }
+
         let body = &buffer[HEADER_LENGTH..HEADER_LENGTH + payload_size];
-        match header.message_command {
-            0x03 => {
+        match Command::from(header.message_command) {
+            Command::Echo => {
                 println!("Received echo command: {:?}", header);
                 let m = EchoMessage::from_bytes(body, use_big)?;
                 let e = EchoResponse {
@@ -121,19 +122,9 @@ async fn handle_tcp_client(
                 };
                 println!("Received body: {:?}", body);
                 let response = e.to_bytes(use_big)?;
-                writer.write_all(&response);
+                writer.write_all(&response).await?;
             }
             _ => (),
         }
-
-        // for feature in features.iter() {
-        //     if feature.match_header(&header) {
-        //         let mut state_guard = state.lock().unwrap(); // or .await for tokio Mutex
-        //         let response = feature.handle_message(&buffer[..n], &mut *state_guard)?;
-        //         let response_bytes = response.to_bytes()?;
-        //         socket.write_all(&response_bytes).await?;
-        //         break;
-        //     }
-        // }
     }
 }

@@ -11,6 +11,22 @@ pub struct PvAccessHeader {
     pub payload_size: u32,   // Length of payload (non-aligned bytes)
 }
 
+
+pub enum Command {
+    Echo = 0x03,
+    Unknown = 0xFF,
+}
+
+impl From<u8> for Command {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0x03 => Command::Echo,
+            _ => Command::Unknown,
+        }
+    }
+}
+
+
 // https://docs.epics-controls.org/en/latest/pv-access/protocol.html#version-2
 // on version
 impl PvAccessHeader {
