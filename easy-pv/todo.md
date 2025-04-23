@@ -27,9 +27,12 @@ using the outlining strategy
 
 
 ## For Wed
-- [ ] add a simple client - so that echo will be tested
-- [ ] delete the lib features code
-- [ ] add frame parsing with tokio_util::codec::FramedRead
+- [x] add a simple client - 
+- [x] delete the lib features code
+- [ ] add frame parsing with tokio_util::codec::FramedRead to the server
+- [ ] add echo read-write
+  - [ ] to client
+  - [ ] to server
 - [ ] this should work as a proof of concept
 - [ ] add try into instead of from_bytes, it's more idiomatic - do that for the pv_echo copy
 

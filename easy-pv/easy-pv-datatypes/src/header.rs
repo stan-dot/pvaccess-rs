@@ -1,18 +1,20 @@
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Result};
 
 /// 🔹 `pvAccess` Protocol Header (fixed 8-byte structure)
 #[derive(Debug, Clone, Copy)]
 pub struct PvAccessHeader {
-    pub magic: u8,           // Always 0xCA
-    pub version: u8,         // Protocol version
-    pub flags: u8,           // Bitmask flags (endianness, segmentation, etc.)
-    pub message_command: u8, // Message type
-    pub payload_size: u32,   // Length of payload (non-aligned bytes)
+    pub magic: u8,                // Always 0xCA
+    pub version: u8,              // Protocol version
+    pub flags: u8,                // Bitmask flags (endianness, segmentation, etc.)
+    pub message_command: Command, // Message type
+    pub payload_size: u32,        // Length of payload (non-aligned bytes)
 }
 
-
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Command {
+    Ping = 0x01,
     Echo = 0x03,
     Unknown = 0xFF,
 }
@@ -26,17 +28,16 @@ impl From<u8> for Command {
     }
 }
 
-
 // https://docs.epics-controls.org/en/latest/pv-access/protocol.html#version-2
 // on version
 impl PvAccessHeader {
     /// 🔹 Create a new header
-    pub fn new(flags: u8, command: u8, payload_size: u32) -> Self {
+    pub fn new(flags: u8, message_command: Command, payload_size: u32) -> Self {
         Self {
             magic: 0xCA,
             version: 2,
             flags,
-            message_command: command,
+            message_command,
             payload_size,
         }
     }
@@ -61,7 +62,7 @@ impl PvAccessHeader {
 
         let version = cursor.read_u8()?;
         let flags = cursor.read_u8()?;
-        let message_command = cursor.read_u8()?;
+        let message_command = Command::from(cursor.read_u8()?);
 
         let payload_size = if flags & 0b1000_0000 != 0 {
             cursor.read_u32::<BigEndian>()?
@@ -86,7 +87,7 @@ impl PvAccessHeader {
             buffer.write_u8(self.magic)?;
             buffer.write_u8(self.version)?;
             buffer.write_u8(self.flags)?;
-            buffer.write_u8(self.message_command)?;
+            buffer.write_u8(self.message_command as u8)?;
 
             if self.flags & 0b1000_0000 != 0 {
                 buffer.write_u32::<BigEndian>(self.payload_size)?;
@@ -118,7 +119,7 @@ impl PvAccessHeader {
 
 #[test]
 fn test_header_serialization() {
-    let header = PvAccessHeader::new(0b0100_0000, 5, 1234); // Server message, command 5, payload 1234
+    let header = PvAccessHeader::new(0b0100_0000, Command::Ping, 1234); // Server message, command 5, payload 1234
     let bytes = header.to_bytes().unwrap();
     let parsed_header = PvAccessHeader::from_bytes(&bytes).unwrap();
     assert_eq!(header.magic, parsed_header.magic);

@@ -1,9 +1,6 @@
-use crate::{
-    config::AppConfig,
-    features::pv_echo::{EchoMessage, EchoResponse},
-    state::ServerState,
-};
+use crate::{config::AppConfig, state::ServerState};
 use easy_pv_datatypes::header::{Command, PvAccessHeader};
+use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -13,9 +10,7 @@ use tokio::{
 };
 
 pub async fn start_server(config: AppConfig) {
-    let initial_server_state = ServerState {
-        feature_state: HashMap::new(),
-    };
+    let initial_server_state = ServerState {};
 
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -31,7 +26,6 @@ pub async fn start_server(config: AppConfig) {
             // todo cloning this is not easy
             let state = Arc::new(Mutex::new(initial_server_state.clone()));
             // let state = Arc::new(Mutex::new(ServerState::new()));
-            // let features = Arc::clone(&features);
 
             tokio::spawn(async move {
                 if let Err(e) = handle_tcp_client(socket, state).await {
@@ -65,7 +59,6 @@ pub async fn start_server(config: AppConfig) {
 
 async fn tcp_server_loop(
     addr: SocketAddr,
-    // features: Arc<Vec<Box<dyn Feature>>>,
     state: Arc<Mutex<ServerState>>,
 ) -> tokio::io::Result<()> {
     let listener = TcpListener::bind(addr).await?;
@@ -75,11 +68,9 @@ async fn tcp_server_loop(
         let (socket, addr) = listener.accept().await?;
         println!("New connection from: {}", addr);
 
-        // let features = Arc::clone(&features);
         let state = Arc::clone(&state);
 
         tokio::spawn(async move {
-            // if let Err(e) = handle_tcp_client(socket, features, state).await {
             if let Err(e) = handle_tcp_client(socket, state).await {
                 eprintln!("Client error: {}", e);
             }
@@ -89,7 +80,6 @@ async fn tcp_server_loop(
 
 async fn handle_tcp_client(
     mut stream: TcpStream,
-    // features: Arc<Vec<Box<dyn Feature>>>,
     state: Arc<Mutex<ServerState>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = vec![0; 4096];
@@ -114,6 +104,10 @@ async fn handle_tcp_client(
 
         let body = &buffer[HEADER_LENGTH..HEADER_LENGTH + payload_size];
         match Command::from(header.message_command) {
+            Command::Ping => {
+                println!("Received ping command: {:?}", header);
+                // NOTE : This is a placeholder for the actual ping response
+            }
             Command::Echo => {
                 println!("Received echo command: {:?}", header);
                 let m = EchoMessage::from_bytes(body, use_big)?;
