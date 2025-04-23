@@ -29,6 +29,11 @@ using the outlining strategy
 ## For Wed
 - [x] add a simple client - 
 - [x] delete the lib features code
+- [ ] server parts
+  - [x] start the udp task
+  - [x] start the tcp task and accept for various headers
+  - [ ] construct connection validation request
+- [x] add half socket each as parts
 - [ ] add frame parsing with tokio_util::codec::FramedRead to the server
 - [ ] add echo read-write
   - [ ] to client
@@ -38,13 +43,8 @@ using the outlining strategy
 
 ## For later
 - [ ] work out the connection caching
-- [ ] add half socket each as parts
 - [ ] pass the endianness flag into the handling of the frame
 
-- [ ] server parts
-  - [ ] start the udp task
-  - [ ] start the tcp task and accept for various headers
-  - [ ] construct connection validation request
   - [ ] connect the fieldesc
   - [ ] each handler will get typed param and return also type - into bytes is separate
 - [ ] minimal working client and server for

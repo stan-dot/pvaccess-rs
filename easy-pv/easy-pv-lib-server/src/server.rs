@@ -1,4 +1,6 @@
 use crate::{config::AppConfig, state::ServerState};
+use easy_pv_datatypes::codec::PvAccessDecoder;
+use easy_pv_datatypes::frame::{self, PvAccessFrame};
 use easy_pv_datatypes::header::{Command, PvAccessHeader};
 use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
@@ -8,6 +10,7 @@ use tokio::{
     signal,
     sync::{Mutex, oneshot},
 };
+use tokio_util::codec::{FramedRead, FramedWrite};
 
 pub async fn start_server(config: AppConfig) {
     let initial_server_state = ServerState {};
@@ -84,41 +87,57 @@ async fn handle_tcp_client(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = vec![0; 4096];
     let (mut reader, mut writer) = stream.split();
+    let mut framed_read = FramedRead::new(reader, PvAccessDecoder);
+    let mut framed_write = FramedWrite::new(writer, frame::PvAccessEncoder);
 
-    loop {
-        let n = reader.read(&mut buffer).await?;
-        if n == 0 {
-            println!("Connection closed");
-            return Ok(());
-        }
-
-        const HEADER_LENGTH: usize = 8;
-        let header = PvAccessHeader::from_bytes(&buffer[..HEADER_LENGTH])?;
-        let use_big = header.is_big_endian();
-        println!("Received header: {:?}", header);
-        let payload_size = header.payload_size as usize;
-
-        if payload_size + HEADER_LENGTH > buffer.len() {
-            buffer.resize(payload_size + HEADER_LENGTH, 0);
-        }
-
-        let body = &buffer[HEADER_LENGTH..HEADER_LENGTH + payload_size];
-        match Command::from(header.message_command) {
+    while let Some(frame_result) = framed_read.next().await {
+        let (header, payload) = frame_result?;
+        match header.message_command {
             Command::Ping => {
                 println!("Received ping command: {:?}", header);
+                
+
+                let response_header = PvAccessHeader::new(flags,Command::Echo, payload_size);
+                let response_frame = PvAccessFrame {
+                    header: PvAccessHeader {
+                        magic: 0xCA,
+                        version: (),
+                        flags: (),
+                        message_command: (),
+                        payload_size: (),
+                    },
+                    payload: Bytes::new(),
+                };
+                framed_write.send(response_frame).await?;
+                println!("Sent ping response");
+
                 // NOTE : This is a placeholder for the actual ping response
             }
             Command::Echo => {
                 println!("Received echo command: {:?}", header);
-                let m = EchoMessage::from_bytes(body, use_big)?;
+                let m = EchoMessage::from_bytes(payload, header.is_big_endian())?;
                 let e = EchoResponse {
                     repeated_bytes: m.random_bytes.clone(),
                 };
-                println!("Received body: {:?}", body);
-                let response = e.to_bytes(use_big)?;
-                writer.write_all(&response).await?;
+                let response_bytes = e.to_bytes(header.is_big_endian())?;
+
+                let response_frame = PvAccessFrame {
+                    header: PvAccessHeader {
+                        magic: 0xCA,
+                        version: header.version,
+                        flags: header.flags,
+                        message_command: Command::Echo,
+                        payload_size: response_bytes.len() as u32,
+                    },
+                    payload: Bytes::from(response_bytes),
+                };
+
+                framed_write.send(response_frame).await?;
             }
-            _ => (),
+            _ => {
+                println!("Unhandled command: 0x{:02X}", header.message_command);
+            }
         }
     }
+    Ok(())
 }

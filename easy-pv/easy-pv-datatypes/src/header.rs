@@ -33,6 +33,7 @@ impl From<u8> for Command {
 // https://docs.epics-controls.org/en/latest/pv-access/protocol.html#version-2
 // on version
 impl PvAccessHeader {
+    pub const LEN: usize = 8; // Header length in bytes
     /// 🔹 Create a new header
     pub fn new(flags: u8, message_command: Command, payload_size: u32) -> Self {
         Self {

@@ -84,6 +84,9 @@ impl BeaconMessage {
         let beacon_sequence_id = cursor.read_u8()?;
         let change_count = cursor.read_u16::<BigEndian>()?;
         let mut server_address = [0u8; 16];
+        let addr: IpAddr = cursor.read_exact(&mut server_address).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid IP address")
+        })?;
         cursor.read_exact(&mut server_address)?;
         let server_port = cursor.read_u16::<BigEndian>()?;
 
