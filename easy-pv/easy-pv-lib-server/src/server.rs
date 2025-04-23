@@ -3,6 +3,7 @@ use bytes::Bytes;
 use easy_pv_datatypes::codec::PvAccessDecoder;
 use easy_pv_datatypes::frame::{self, PvAccessFrame};
 use easy_pv_datatypes::header::{Command, PvAccessHeader};
+use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
 use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
 use easy_pv_datatypes::messages::pv_validation::{
     ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse,
@@ -10,12 +11,14 @@ use easy_pv_datatypes::messages::pv_validation::{
 use futures::StreamExt;
 use futures::sink::SinkExt;
 use std::sync::Arc;
+use tokio::net::UdpSocket;
 use tokio::{
     net::{TcpListener, TcpStream},
     signal,
     sync::{Mutex, oneshot},
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
+use uuid::Uuid;
 
 pub async fn start_server(config: AppConfig) {
     let initial_server_state = ServerState {};
@@ -43,7 +46,7 @@ pub async fn start_server(config: AppConfig) {
 
     let udp_task = tokio::spawn(async move {
         // Placeholder for UDP task
-        // send_udp_beacons(udp_active_clone, shared_settings.clone()).await;
+        send_udp_beacons(udp_active_clone, config.clone()).await;
     });
     tokio::select! {
         _ = signal::ctrl_c() => {
@@ -149,4 +152,49 @@ async fn handle_tcp_client(
         }
     }
     Ok(())
+}
+
+async fn send_udp_beacons(udp_active: Arc<Mutex<bool>>, config: AppConfig) {
+    // todo this should probably work somewhere
+    let udp_active_clone = udp_active.clone();
+    let long_term_interval = config.beacon.udp_long_term_interval;
+    let beacon_addr = config.network.host;
+    let intitial_interval = config.beacon.udp_initial_interval;
+
+    let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
+    socket.set_broadcast(true).unwrap();
+    println!(
+        "UDP beacon started. Initial interval: {}s, then switching to {}s.",
+        intitial_interval, long_term_interval
+    );
+    // todo this is mut for beacon_sequence_id, will change
+    let message = BeaconMessage {
+        guid: Uuid::new_v4().as_bytes()[..12].try_into().unwrap(), // Truncate to 12 bytes
+        flags: 0,
+        beacon_sequence_id: 0,
+        change_count: 0, // every time the list of channels changes
+        server_address: beacon_addr,
+        server_port: config.network.port,
+        protocol: "tcp".to_owned(),
+        server_status_if: 0, // Replace with an appropriate u8 value
+    };
+    let serialized_message = message.to_bytes().unwrap();
+
+    // todo send first 15 times with the initial delay, then switch for the long interval one
+    let full_address = format!("{}:{}", beacon_addr, config.network.port);
+    if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
+        eprintln!("failed to send UDP beacon {:?}", e);
+    } else {
+        println!("send UDP beacon to {}", beacon_addr);
+    }
+
+    loop {
+        if !*udp_active.lock().await {
+            println!("UDP beacon stopped.");
+            break;
+        }
+        // Placeholder for sending UDP beacons
+        println!("Sending UDP beacon to {}", beacon_addr);
+        tokio::time::sleep(tokio::time::Duration::from_secs(long_term_interval)).await;
+    }
 }
