@@ -4,7 +4,7 @@ use crate::config::ClientConfig;
 use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
 
 use tokio::{
-    net::{tcp, TcpStream, UdpSocket},
+    net::{TcpStream, UdpSocket, tcp},
     signal,
     sync::{oneshot, watch},
 };
@@ -68,7 +68,7 @@ pub async fn start_client_v2(config: ClientConfig) {
         flags: 0,
         beacon_sequence_id: 0,
         change_count: 0,
-        server_address: [0; 16],
+        server_address: IpAddr::from([0, 0, 0, 0]),
         server_port: 0,
         protocol: "unknown".to_string(),
         server_status_if: 0,
