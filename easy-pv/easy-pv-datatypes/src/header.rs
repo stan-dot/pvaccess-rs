@@ -1,6 +1,8 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Result};
 
+pub const HEADER_LENGTH: usize = 8; // Header length in bytes
+
 /// 🔹 `pvAccess` Protocol Header (fixed 8-byte structure)
 #[derive(Debug, Clone, Copy)]
 pub struct PvAccessHeader {
