@@ -6,4 +6,5 @@ members = [
     "easy-pv-lib-server",
     "easy-pv-client",
     "easy-pv-server",
+    "easy-pv-lib-client",
 ]

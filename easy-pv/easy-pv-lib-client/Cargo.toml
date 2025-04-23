@@ -1,5 +1,5 @@
 [package]
-name = "easy-pv-client"
+name = "easy-pv-lib-client"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,4 +7,3 @@ edition = "2024"
 serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.44.2", features = ["full"] }
 anyhow = "1.0.97"
-easy-pv-lib-client = { path = "../easy-pv-lib-client" }
