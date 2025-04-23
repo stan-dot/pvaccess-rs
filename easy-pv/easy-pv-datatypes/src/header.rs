@@ -16,7 +16,8 @@ pub struct PvAccessHeader {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Command {
-    Ping = 0x01,
+    Ping = 0x00,
+    ConnectionValidation = 0x01,
     Echo = 0x03,
     Unknown = 0xFF,
 }

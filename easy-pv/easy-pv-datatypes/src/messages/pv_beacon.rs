@@ -63,7 +63,10 @@ impl BeaconMessage {
         buffer.write_u8(self.flags)?;
         buffer.write_u8(self.beacon_sequence_id)?;
         buffer.write_u16::<BigEndian>(self.change_count)?;
-        buffer.extend_from_slice(&self.server_address);
+        match self.server_address {
+            IpAddr::V4(ipv4) => buffer.extend_from_slice(&ipv4.octets()),
+            IpAddr::V6(ipv6) => buffer.extend_from_slice(&ipv6.octets()),
+        }
         buffer.write_u16::<BigEndian>(self.server_port)?;
 
         buffer.write_u8(self.protocol.len() as u8)?;
@@ -84,10 +87,8 @@ impl BeaconMessage {
         let beacon_sequence_id = cursor.read_u8()?;
         let change_count = cursor.read_u16::<BigEndian>()?;
         let mut server_address = [0u8; 16];
-        let addr: IpAddr = cursor.read_exact(&mut server_address).map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid IP address")
-        })?;
-        cursor.read_exact(&mut server_address)?;
+        cursor.read_exact(&mut server_address)?; // Read bytes into the buffer
+        let addr: IpAddr = parse_ip(&server_address); // Convert the buffer into an IpAddr
         let server_port = cursor.read_u16::<BigEndian>()?;
 
         let protocol_length = cursor.read_u8()? as usize;
@@ -103,7 +104,7 @@ impl BeaconMessage {
             flags,
             beacon_sequence_id,
             change_count,
-            server_address,
+            server_address: addr,
             server_port,
             protocol,
             server_status_if,

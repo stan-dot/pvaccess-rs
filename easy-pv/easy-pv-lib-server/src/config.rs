@@ -3,20 +3,20 @@ use serde::Deserialize;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy)]
 pub struct AppConfig {
     pub beacon: BeaconConfig,
     pub websocket: ServerConfig,
     pub network: ServerConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Copy, Clone)]
 pub struct BeaconConfig {
     pub udp_initial_interval: u64,
     pub udp_long_term_interval: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy)]
 pub struct ServerConfig {
     pub host: IpAddr,
     pub port: u16,
@@ -30,11 +30,10 @@ impl ServerConfig {
 
 impl AppConfig {
     pub fn new() -> Self {
-        let config_path = env::var("CONFIG_PATH")
-            .unwrap_or_else(|_| {
-                const DEV_PATH: &str = "easy-pv-server/dev-server";
-                DEV_PATH.to_string()
-            });
+        let config_path = env::var("CONFIG_PATH").unwrap_or_else(|_| {
+            const DEV_PATH: &str = "easy-pv-server/dev-server";
+            DEV_PATH.to_string()
+        });
 
         println!("Loading config from: {}", config_path);
 

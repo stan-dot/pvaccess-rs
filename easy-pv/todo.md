@@ -34,7 +34,7 @@ using the outlining strategy
   - [x] start the tcp task and accept for various headers
   - [ ] construct connection validation request
 - [x] add half socket each as parts
-- [ ] add frame parsing with tokio_util::codec::FramedRead to the server
+- [x] add frame parsing with tokio_util::codec::FramedRead to the server
 - [ ] add echo read-write
   - [ ] to client
   - [ ] to server
