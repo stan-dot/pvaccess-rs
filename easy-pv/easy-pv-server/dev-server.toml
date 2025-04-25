@@ -1,7 +1,7 @@
 [beacon]
 # todo consider using a dev mode where no long interval happens
 udp_initial_interval = 15
-udp_long_term_interval = 60
+udp_long_term_interval = 20 # prod is 60
 
 [websocket]
 host = "127.0.0.1"

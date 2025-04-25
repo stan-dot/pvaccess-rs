@@ -4,7 +4,12 @@ use std::fmt;
 use std::io::Read;
 use std::io::{Cursor, Result};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::ptr::eq;
 use uuid::Uuid;
+
+use crate::header::Command;
+use crate::header::HEADER_LENGTH;
+use crate::header::PvAccessHeader;
 
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
 #[derive(Debug, Clone)]
@@ -95,19 +100,19 @@ impl BeaconMessage {
         let mut cursor = Cursor::new(bytes);
 
         let mut guid = [0u8; 12];
-        cursor.read_exact(&mut guid)?;
+        let _ = cursor.read_exact(&mut guid);
 
         let flags = cursor.read_u8()?;
         let beacon_sequence_id = cursor.read_u8()?;
         let change_count = cursor.read_u16::<BigEndian>()?;
         let mut server_address = [0u8; 16];
-        cursor.read_exact(&mut server_address)?; // Read bytes into the buffer
+        let _ = cursor.read_exact(&mut server_address); // Read bytes into the buffer
         let addr: IpAddr = parse_ip(&server_address); // Convert the buffer into an IpAddr
         let server_port = cursor.read_u16::<BigEndian>()?;
 
-        let protocol_length = cursor.read_u8()? as usize;
-        let mut protocol_bytes = vec![0u8; protocol_length];
-        cursor.read_exact(&mut protocol_bytes)?;
+        let protocol_length = cursor.read_u8()?;
+        let mut protocol_bytes = vec![0u8; protocol_length as usize];
+        let _ = cursor.read_exact(&mut protocol_bytes);
         let protocol = String::from_utf8(protocol_bytes)
             .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
 
@@ -124,13 +129,35 @@ impl BeaconMessage {
             server_status_if,
         })
     }
+
+    pub fn into_beacon_frame(self) -> Result<Vec<u8>> {
+        let body = self.to_bytes()?;
+        let header = PvAccessHeader::new(0, Command::Beacon, body.len() as u32);
+        let mut frame = header.to_bytes()?;
+        frame.extend_from_slice(&body);
+        Ok(frame)
+    }
 }
 
+#[test]
+fn test_from_bytes_correct() {
+    let bytes = [
+        202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2, 0,
+        0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
+    ];
+    println!("{:?}", bytes);
+    let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
+    println!("{:?}", h);
+    assert_eq!(h.magic, 0xCA)
+}
 
 #[test]
-fn test_from_bytes_correct(){
-    let bytes = [54, 95, 83, 150, 20, 167, 69, 50, 139, 179, 227, 14, 0, 17, 0, 0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0];
-    println!("{:?}", bytes)
-
-
+fn test_parse_body_correctly() {
+    let body_bytes_after_header = [
+        171, 105, 116, 128, 11, 48, 104, 101, 180, 156, 133, 227, 0, 14, 0, 0, 127, 0, 0, 1, 21,
+        200, 3, 116, 99, 112, 0,
+    ];
+    println!("{:?}", body_bytes_after_header);
+    let beacon = BeaconMessage::from_bytes(&body_bytes_after_header).unwrap();
+    assert_eq!(beacon.flags, 0);
 }

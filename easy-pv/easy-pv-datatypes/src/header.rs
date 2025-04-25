@@ -1,5 +1,8 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use std::io::{Cursor, Result};
+use std::{
+    fmt::format,
+    io::{Cursor, Result},
+};
 
 pub const HEADER_LENGTH: usize = 8; // Header length in bytes
 
@@ -16,7 +19,7 @@ pub struct PvAccessHeader {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Command {
-    Ping = 0x00,
+    Beacon = 0x00,
     ConnectionValidation = 0x01,
     Echo = 0x03,
     Unknown = 0xFF,
@@ -25,6 +28,8 @@ pub enum Command {
 impl From<u8> for Command {
     fn from(byte: u8) -> Self {
         match byte {
+            0x00 => Command::Beacon,
+            0x01 => Command::ConnectionValidation,
             0x03 => Command::Echo,
             _ => Command::Unknown,
         }
@@ -58,9 +63,10 @@ impl PvAccessHeader {
         let mut cursor = Cursor::new(bytes);
         let magic = cursor.read_u8()?;
         if magic != 0xCA {
+            let error_text = format!("Invalid magic byte in bytes {:?}", bytes.to_ascii_lowercase());
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "Invalid magic byte",
+                error_text,
             ));
         }
 
@@ -123,7 +129,7 @@ impl PvAccessHeader {
 
 #[test]
 fn test_header_serialization() {
-    let header = PvAccessHeader::new(0b0100_0000, Command::Ping, 1234); // Server message, command 5, payload 1234
+    let header = PvAccessHeader::new(0b0100_0000, Command::Beacon, 1234); // Server message, command 5, payload 1234
     let bytes = header.to_bytes().unwrap();
     let parsed_header = PvAccessHeader::from_bytes(&bytes).unwrap();
     assert_eq!(header.magic, parsed_header.magic);

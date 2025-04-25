@@ -1,12 +1,15 @@
 use std::net::{IpAddr, SocketAddr};
 
 use crate::config::ClientConfig;
-use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
+use easy_pv_datatypes::{
+    header::{Command, PvAccessHeader},
+    messages::pv_beacon::BeaconMessage,
+};
 
 use tokio::{
-    net::{TcpStream, UdpSocket, tcp},
+    net::{TcpStream, UdpSocket},
     signal,
-    sync::{oneshot, watch},
+    sync::watch,
 };
 // todo here add client state struct that will hold from udp beacon to tcp connection
 
@@ -17,50 +20,6 @@ enum Mode {
 }
 
 pub async fn start_client(config: ClientConfig) {
-    println!("starting the client v1 with config: {}", config);
-    let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
-    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-
-    let udp_port = config.udp_port;
-    let tcp_port = config.tcp_port;
-    // todo init a udp_task using extracted port
-    // only one or the other is active at the same time. it's udp until tcp is discovered
-    // if tcp connection drops, revert to udp
-    tokio::select! {
-        _ = signal::ctrl_c() => {
-            println!("Received shutdown signal, stopping client...");
-        }
-        _ = terminate_signal.recv() => {
-            println!("Received SIGTERM (Kubernetes shutdown), stopping client...");
-        }
-        _ = shutdown_rx => {
-            println!("Shutdown initiated...");
-        }
-    }
-
-    // Perform Graceful Shutdown
-    // udp_task.abort();
-    // tcp_task.abort();
-    println!("client shut down gracefully.");
-}
-
-async fn discover_server(udp_host: IpAddr, udp_port: u16) -> String {
-    println!("trying to discover server at port {}", udp_port);
-    let socket = UdpSocket::bind((udp_host, udp_port)).await.unwrap();
-    let mut buffer = [0; 1024];
-
-    loop {
-        if let Ok((size, _)) = socket.recv_from(&mut buffer).await {
-            // todo must parse the frames to get the BeaconMessage type
-            // let msg = str::from_utf8(&buffer[..size]).unwrap();
-            // if msg.starts_with("DISCOVER_SERVER:") {
-            //     return msg.replace("DISCOVER_SERVER:", "").trim().to_string();
-            // }
-        }
-    }
-}
-
-pub async fn start_client_v2(config: ClientConfig) {
     println!("starting the client v1 with config: {}", config);
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
@@ -136,7 +95,6 @@ async fn run_tcp_mode(
         }
     }
 }
-
 async fn run_udp_mode(
     config: ClientConfig,
     mode_tx: watch::Sender<Mode>,
@@ -153,14 +111,58 @@ async fn run_udp_mode(
     loop {
         match socket.recv_from(&mut buf).await {
             Ok((size, _src)) => {
-                if let Ok(beacon) = BeaconMessage::from_bytes(&buf[..size]) {
-                    println!("Parsed beacon from server: {:?}", beacon);
-                    beacon_tx.send(beacon.clone()).ok();
-                    mode_tx.send(Mode::Tcp).unwrap();
-                    return; // Let TCP mode take over
-                } else {
-                    let interesting_bytes = &buf[..size];
-                    println!("Received invalid beacon, bytes: {:?}", &interesting_bytes);
+                if size < PvAccessHeader::LEN {
+                    println!("Received packet too short for header: {} bytes", size);
+                    continue;
+                }
+
+                // Step 1: Parse header first
+                let header_bytes = &buf[..PvAccessHeader::LEN];
+                println!("full buffer for reference {:?}", buf);
+                let header = match PvAccessHeader::from_bytes(header_bytes) {
+                    Ok(h) => h,
+                    Err(e) => {
+                        println!("Invalid header: {}", e);
+                        continue;
+                    }
+                };
+                println!("header bytes are {:?}", header_bytes);
+
+                // Step 2: Check if the full body is present
+                let expected_len = PvAccessHeader::LEN + header.payload_size as usize;
+                if size < expected_len {
+                    println!("Incomplete frame: expected {}, got {}", expected_len, size);
+                    continue;
+                }
+
+                // Step 3: Extract body and parse if command is expected
+                let body_bytes = &buf[PvAccessHeader::LEN..expected_len];
+
+                match Command::from(header.message_command) {
+                    Command::Echo => {
+                        println!("Got echo over UDP (unexpected?)");
+                        // usually TCP, might be misrouted
+                    }
+                    Command::Beacon => {
+                        match BeaconMessage::from_bytes(body_bytes) {
+                            Ok(beacon) => {
+                                println!("Parsed beacon: {:?}", beacon);
+                                let _ = beacon_tx.send(beacon.clone());
+                                let _ = mode_tx.send(Mode::Tcp);
+                                return; // switch to TCP mode
+                            }
+                            Err(e) => {
+                                println!("Failed to parse beacon body: {}", e);
+                            }
+                        }
+                    }
+                    _ => {
+                        println!(
+                            "Received unknown command: {:?}, ignoring",
+                            header.message_command
+                        );
+                        println!("body bytes are {:?}", body_bytes);
+                    }
                 }
             }
             Err(e) => eprintln!("UDP recv error: {}", e),

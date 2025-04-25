@@ -123,7 +123,7 @@ async fn handle_tcp_client(
     while let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
         match header.message_command {
-            Command::Ping => {
+            Command::Beacon => {
                 println!("Received ping command: {:?}", header);
                 let response_header = PvAccessHeader::new(0, Command::Echo, 0);
                 let response_frame = PvAccessFrame {
@@ -170,9 +170,11 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
         "UDP beacon started. Initial interval: {}s, then switching to {}s.",
         intitial_interval, long_term_interval
     );
-    // todo this is mut for beacon_sequence_id, will change
-    let mut message = BeaconMessage {
-        guid: Uuid::new_v4().as_bytes()[..12].try_into().unwrap(), // Truncate to 12 bytes
+    let server_guid = Uuid::new_v4().as_bytes()[..12].try_into().unwrap();
+
+    // todo flags will be necessary
+    let message_base = BeaconMessage {
+        guid: server_guid, // Truncate to 12 bytes
         flags: 0,
         beacon_sequence_id: 0,
         change_count: 0, // every time the list of channels changes
@@ -189,13 +191,17 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
         intitial_interval,
     );
     for i in 1..length {
-        message.beacon_sequence_id = i;
-        let serialized_message = message.to_bytes().unwrap();
-        if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
+        let mut new_messsage = message_base.clone();
+        new_messsage.beacon_sequence_id = i;
+        let beacon_bytes = new_messsage.into_beacon_frame().unwrap();
+        let debug_bytes = format!("full message bytes {:?}", beacon_bytes.to_ascii_lowercase());
+        println!("{}", &debug_bytes);
+
+        if let Err(e) = socket.send_to(&beacon_bytes, &full_address).await {
             eprintln!("failed to send UDP beacon {:?}", e);
         } else {
             println!("Short initial UDP beacon sent to {}", beacon_addr);
-            println!("message, {}", message);
+            println!("message, {}", message_base);
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(intitial_interval)).await;
     }
@@ -205,11 +211,15 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
     );
 
     loop {
-        message.beacon_sequence_id = message.beacon_sequence_id + 1;
-        let serialized_message = message.to_bytes().unwrap();
+        let mut new_mesage = message_base.clone();
+        // todo should increment the number right
+        new_mesage.beacon_sequence_id += 1;
+        let beacon_bytes = new_mesage.into_beacon_frame().unwrap();
+        let debug_bytes = format!("full message bytes {:?}", beacon_bytes.to_ascii_lowercase());
+        println!("{}", &debug_bytes);
         println!("Sending UDP beacon to {}", beacon_addr);
         tokio::time::sleep(tokio::time::Duration::from_secs(long_term_interval)).await;
-        if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
+        if let Err(e) = socket.send_to(&beacon_bytes, &full_address).await {
             eprintln!("failed to send UDP beacon {:?}", e);
         } else {
             println!("sent UDP beacon to {}", beacon_addr);
