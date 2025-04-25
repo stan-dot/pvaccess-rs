@@ -64,7 +64,8 @@ pub async fn start_client_v2(config: ClientConfig) {
     println!("starting the client v1 with config: {}", config);
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
-    let (mode_tx, mode_rx) = watch::channel(Mode::Udp);
+    // todo auto mode switching is not working yet
+    let (mode_tx, mode_rx) = watch::channel(Mode::Tcp);
     let (beacon_tx, beacon_rx) = watch::channel(BeaconMessage {
         guid: [0; 12],
         flags: 0,
@@ -158,7 +159,8 @@ async fn run_udp_mode(
                     mode_tx.send(Mode::Tcp).unwrap();
                     return; // Let TCP mode take over
                 } else {
-                    println!("Received invalid beacon");
+                    let interesting_bytes = &buf[..size];
+                    println!("Received invalid beacon, bytes: {:?}", &interesting_bytes);
                 }
             }
             Err(e) => eprintln!("UDP recv error: {}", e),

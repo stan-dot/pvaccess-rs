@@ -35,7 +35,7 @@ using the outlining strategy
   - [x] construct connection validation request
 - [x] add half socket each as parts
 - [x] add frame parsing with tokio_util::codec::FramedRead to the server
-- [ ] start the udp beacon
+- [x] start the udp beacon
 - [ ] parse the header
 - [ ] minimal working client and server for
   - [ ] udp discovery

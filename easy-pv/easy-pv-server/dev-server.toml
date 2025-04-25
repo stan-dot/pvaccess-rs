@@ -1,4 +1,5 @@
 [beacon]
+# todo consider using a dev mode where no long interval happens
 udp_initial_interval = 15
 udp_long_term_interval = 60
 

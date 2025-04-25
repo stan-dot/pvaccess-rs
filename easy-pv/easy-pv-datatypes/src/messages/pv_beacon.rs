@@ -125,3 +125,12 @@ impl BeaconMessage {
         })
     }
 }
+
+
+#[test]
+fn test_from_bytes_correct(){
+    let bytes = [54, 95, 83, 150, 20, 167, 69, 50, 139, 179, 227, 14, 0, 17, 0, 0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0];
+    println!("{:?}", bytes)
+
+
+}
