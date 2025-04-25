@@ -17,6 +17,7 @@ enum Mode {
 }
 
 pub async fn start_client(config: ClientConfig) {
+    println!("starting the client v1 with config: {}", config);
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
 
@@ -60,6 +61,7 @@ async fn discover_server(udp_host: IpAddr, udp_port: u16) -> String {
 }
 
 pub async fn start_client_v2(config: ClientConfig) {
+    println!("starting the client v1 with config: {}", config);
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
     let (mode_tx, mode_rx) = watch::channel(Mode::Udp);
