@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::env;
+use std::fmt;
 use std::io::Read;
 use std::io::{Cursor, Result};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -8,19 +9,32 @@ use uuid::Uuid;
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
 #[derive(Debug, Clone)]
 pub struct BeaconMessage {
-    pub guid: [u8; 12],           // Server GUID (MUST change every restart)
-    pub flags: u8,                // Reserved (set to 0)
-    pub beacon_sequence_id: u8,   // Counter with rollover
-    pub change_count: u16,        // Increments when channels change
+    pub guid: [u8; 12],         // Server GUID (MUST change every restart)
+    pub flags: u8,              // Reserved (set to 0)
+    pub beacon_sequence_id: u8, // Counter with rollover
+    pub change_count: u16,      // Increments when channels change
     pub server_address: IpAddr, // IPv6 address (or IPv4 encoded in IPv6)
-    pub server_port: u16,         // Port where the server is listening
-    pub protocol: String,         // Protocol name ("tcp")
-    pub server_status_if: u8,     // NULL_TYPE_CODE if no status
+    pub server_port: u16,       // Port where the server is listening
+    pub protocol: String,       // Protocol name ("tcp")
+    pub server_status_if: u8,   // NULL_TYPE_CODE if no status
+}
+
+impl fmt::Display for BeaconMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Beacon with sequence id: {} and flags {}",
+            self.beacon_sequence_id, self.flags
+        )
+    }
 }
 
 fn parse_ip(bytes: &[u8; 16]) -> IpAddr {
     // Check if it's an IPv4-mapped IPv6 address
-    if bytes[..12] == [0; 10].as_ref().repeat(1).as_slice()[..] && bytes[10] == 0xFF && bytes[11] == 0xFF {
+    if bytes[..12] == [0; 10].as_ref().repeat(1).as_slice()[..]
+        && bytes[10] == 0xFF
+        && bytes[11] == 0xFF
+    {
         IpAddr::V4(Ipv4Addr::new(bytes[12], bytes[13], bytes[14], bytes[15]))
     } else {
         IpAddr::V6(Ipv6Addr::from(*bytes))

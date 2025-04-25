@@ -10,7 +10,10 @@ use easy_pv_datatypes::messages::pv_validation::{
 };
 use futures::StreamExt;
 use futures::sink::SinkExt;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use tokio::net::UdpSocket;
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -44,6 +47,8 @@ pub async fn start_server(config: AppConfig) {
         }
     });
 
+    let udp_active = Arc::new(AtomicBool::new(true));
+    let udp_active_clone = Arc::clone(&udp_active);
     let udp_task = tokio::spawn(async move {
         // Placeholder for UDP task
         send_udp_beacons(udp_active_clone, config.clone()).await;
@@ -154,9 +159,7 @@ async fn handle_tcp_client(
     Ok(())
 }
 
-async fn send_udp_beacons(udp_active: Arc<Mutex<bool>>, config: AppConfig) {
-    // todo this should probably work somewhere
-    let udp_active_clone = udp_active.clone();
+async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
     let long_term_interval = config.beacon.udp_long_term_interval;
     let beacon_addr = config.network.host;
     let intitial_interval = config.beacon.udp_initial_interval;
@@ -168,7 +171,7 @@ async fn send_udp_beacons(udp_active: Arc<Mutex<bool>>, config: AppConfig) {
         intitial_interval, long_term_interval
     );
     // todo this is mut for beacon_sequence_id, will change
-    let message = BeaconMessage {
+    let mut message = BeaconMessage {
         guid: Uuid::new_v4().as_bytes()[..12].try_into().unwrap(), // Truncate to 12 bytes
         flags: 0,
         beacon_sequence_id: 0,
@@ -178,23 +181,38 @@ async fn send_udp_beacons(udp_active: Arc<Mutex<bool>>, config: AppConfig) {
         protocol: "tcp".to_owned(),
         server_status_if: 0, // Replace with an appropriate u8 value
     };
-    let serialized_message = message.to_bytes().unwrap();
 
-    // todo send first 15 times with the initial delay, then switch for the long interval one
     let full_address = format!("{}:{}", beacon_addr, config.network.port);
-    if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
-        eprintln!("failed to send UDP beacon {:?}", e);
-    } else {
-        println!("send UDP beacon to {}", beacon_addr);
+    let length = 15;
+    println!(
+        "Short initial end UDP beacons with initial interval {}s",
+        intitial_interval,
+    );
+    for i in 1..length {
+        message.beacon_sequence_id = i;
+        let serialized_message = message.to_bytes().unwrap();
+        if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
+            eprintln!("failed to send UDP beacon {:?}", e);
+        } else {
+            println!("Short initial UDP beacon sent to {}", beacon_addr);
+            println!("message, {}", message);
+        }
+        tokio::time::sleep(tokio::time::Duration::from_secs(intitial_interval)).await;
     }
+    println!(
+        "Switched to long term UDP beacons with interval {}s",
+        long_term_interval
+    );
 
     loop {
-        if !*udp_active.lock().await {
-            println!("UDP beacon stopped.");
-            break;
-        }
-        // Placeholder for sending UDP beacons
+        message.beacon_sequence_id = message.beacon_sequence_id + 1;
+        let serialized_message = message.to_bytes().unwrap();
         println!("Sending UDP beacon to {}", beacon_addr);
         tokio::time::sleep(tokio::time::Duration::from_secs(long_term_interval)).await;
+        if let Err(e) = socket.send_to(&serialized_message, &full_address).await {
+            eprintln!("failed to send UDP beacon {:?}", e);
+        } else {
+            println!("sent UDP beacon to {}", beacon_addr);
+        }
     }
 }
