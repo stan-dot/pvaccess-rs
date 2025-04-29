@@ -3,7 +3,10 @@ use std::net::{IpAddr, SocketAddr};
 use crate::config::ClientConfig;
 use easy_pv_datatypes::{
     header::{Command, PvAccessHeader},
-    messages::pv_beacon::BeaconMessage,
+    messages::{
+        pv_beacon::BeaconMessage,
+        pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse},
+    },
 };
 
 use tokio::{
@@ -86,7 +89,31 @@ async fn run_tcp_mode(
         match TcpStream::connect((server_ip, server_port)).await {
             Ok(stream) => {
                 println!("TCP session established.");
-                // read/write as usual
+                let (mut reader, writer) = stream.into_split();
+                let mut writer = writer; // Declare writer as mutable
+                // todo add frame processing
+                let bytes = [0u8; 1500];
+                let request = ConnectionValidationRequest::from_bytes(&bytes).unwrap();
+                println!("Received connection validation request: {:?}", request);
+
+                let response = ConnectionValidationResponse::new(
+                    config.buffer_size,
+                    config.introspection_registry_max_size.try_into().unwrap(),
+                    ConnectionQoS::PRIORITY_MASK,
+                    "authz".to_string(),
+                );
+                let response_bytes = response.to_bytes().unwrap();
+                println!("Sending connection validation response: {:?}", response);
+                // send the response
+                {
+                    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                    if let Err(e) = writer.write_all(&response_bytes).await {
+                        println!("Failed to send response: {}", e);
+                        return;
+                    }
+                    println!("Response sent successfully.");
+                    // todo loop to work within the connection
+                }
             }
             Err(e) => {
                 println!("TCP connection failed: {}", e);
@@ -95,6 +122,9 @@ async fn run_tcp_mode(
         }
     }
 }
+
+
+
 async fn run_udp_mode(
     config: ClientConfig,
     mode_tx: watch::Sender<Mode>,

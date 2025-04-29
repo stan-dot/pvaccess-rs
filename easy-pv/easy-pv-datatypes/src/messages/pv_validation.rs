@@ -67,6 +67,19 @@ pub struct ConnectionValidationResponse {
 }
 
 impl ConnectionValidationResponse {
+    pub fn new(
+        client_receive_buffer_size: u32,
+        client_introspection_registry_max_size: u16,
+        connection_qos: ConnectionQoS,
+        auth_nz: String,
+    ) -> Self {
+        Self {
+            client_receive_buffer_size,
+            client_introspection_registry_max_size,
+            connection_qos,
+            auth_nz,
+        }
+    }
     /// 🔹 Serialize to bytes
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();

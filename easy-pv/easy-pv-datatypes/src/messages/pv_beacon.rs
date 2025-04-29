@@ -96,7 +96,7 @@ impl BeaconMessage {
         buffer.extend_from_slice(self.protocol.as_bytes());
 
         buffer.write_u8(self.server_status_if)?;
-        println!("new beacon body Buffer length: {}", buffer.len());
+        // println!("new beacon body Buffer length: {}", buffer.len());
 
         Ok(buffer)
     }

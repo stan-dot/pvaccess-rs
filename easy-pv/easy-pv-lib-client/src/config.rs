@@ -11,6 +11,7 @@ pub struct ClientConfig {
     pub udp_port: u16,
     pub tcp_port: u16,
     pub buffer_size: u32,
+    pub introspection_registry_max_size: i16
 }
 
 impl fmt::Display for ClientConfig {
