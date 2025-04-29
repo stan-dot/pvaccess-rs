@@ -138,3 +138,15 @@ fn test_header_serialization() {
     assert_eq!(header.message_command, parsed_header.message_command);
     assert_eq!(header.payload_size, parsed_header.payload_size);
 }
+
+#[test]
+fn test_from_bytes_correct() {
+    let bytes = [
+        202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2, 0,
+        0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
+    ];
+    println!("{:?}", bytes);
+    let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
+    println!("{:?}", h);
+    assert_eq!(h.magic, 0xCA)
+}

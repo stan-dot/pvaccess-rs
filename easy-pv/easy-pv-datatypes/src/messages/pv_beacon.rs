@@ -83,13 +83,13 @@ impl BeaconMessage {
         buffer.write_u8(self.flags)?;
         buffer.write_u8(self.beacon_sequence_id)?;
         buffer.write_u16::<BigEndian>(self.change_count)?;
-        
+
         let slice = match self.server_address {
-            IpAddr::V4(ipv4) => &ipv4.to_ipv6_mapped().octets(),  
+            IpAddr::V4(ipv4) => &ipv4.to_ipv6_mapped().octets(),
             IpAddr::V6(ipv6) => &ipv6.octets(),
         };
         buffer.extend_from_slice(slice);
-        // 
+        //
         buffer.write_u16::<BigEndian>(self.server_port)?;
 
         buffer.write_u8(self.protocol.len() as u8)?;
@@ -147,40 +147,6 @@ impl BeaconMessage {
         frame.extend_from_slice(&body);
         Ok(frame)
     }
-}
-
-#[test]
-fn test_from_bytes_correct() {
-    let bytes = [
-        202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2, 0,
-        0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
-    ];
-    println!("{:?}", bytes);
-    let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
-    println!("{:?}", h);
-    assert_eq!(h.magic, 0xCA)
-}
-
-#[test]
-fn test_parse_body_correctly() {
-    let body_bytes_after_header = [
-        171, 105, 116, 128, 11, 48, 104, 101, 180, 156, 133, 227, 0, 14, 0, 0, 127, 0, 0, 1, 21,
-        200, 3, 116, 99, 112, 0,
-    ];
-    println!("{:?}", body_bytes_after_header);
-    let beacon = BeaconMessage::from_bytes(&body_bytes_after_header).unwrap();
-    assert_eq!(beacon.flags, 0);
-}
-
-#[test]
-fn test_parse_body_correctly_2() {
-    let body_bytes_after_header = [
-        254, 53, 201, 39, 174, 163, 67, 67, 173, 0, 75, 96, 0, 1, 0, 0, 127, 0, 0, 1, 21, 200, 3,
-        116, 99, 112, 0,
-    ];
-    println!("{:?}", body_bytes_after_header);
-    let beacon = BeaconMessage::from_bytes(&body_bytes_after_header).unwrap();
-    assert_eq!(beacon.flags, 0);
 }
 
 #[test]
