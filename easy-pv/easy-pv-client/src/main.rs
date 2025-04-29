@@ -10,6 +10,7 @@ async fn main() {
         udp_port: 5576,
         tcp_port: 5576,
         buffer_size: 105576,
+        introspection_registry_max_size: 15576,
     };
     start_client(config).await;
 }

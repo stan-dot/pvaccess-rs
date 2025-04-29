@@ -80,7 +80,15 @@ async fn handle_tcp_client(
     let mut framed_read = FramedRead::new(reader, PvAccessDecoder);
     let mut framed_write = FramedWrite::new(writer, frame::PvAccessEncoder);
 
-    // Handle the first message as a ConnectionValidationRequest
+    // todo send the first message as a ConnectionValidationRequest - wait this is actually first sent by the server
+    let request = ConnectionValidationRequest::new(
+        config.connection_validation.receive_buffer_size,
+        config.connection_validation.introspection_registry_max_size,
+        Vec::new(),
+    );
+
+
+
     if let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
         if header.message_command == Command::ConnectionValidation {

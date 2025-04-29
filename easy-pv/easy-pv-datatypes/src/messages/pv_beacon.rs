@@ -140,6 +140,8 @@ impl BeaconMessage {
         })
     }
 
+
+    // todo not sure if all of those should get this treatment. at least the flags should be different
     pub fn into_beacon_frame(self) -> Result<Vec<u8>> {
         let body = self.to_bytes()?;
         let header = PvAccessHeader::new(0, Command::Beacon, body.len() as u32);

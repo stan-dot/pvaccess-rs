@@ -8,6 +8,13 @@ pub struct AppConfig {
     pub beacon: BeaconConfig,
     pub websocket: ServerConfig,
     pub network: ServerConfig,
+    pub connection_validation: ConnectionValidationParams,
+}
+
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub struct ConnectionValidationParams {
+    pub receive_buffer_size: u32,
+    pub introspection_registry_max_size: u16,
 }
 
 #[derive(Debug, Deserialize, Copy, Clone)]
