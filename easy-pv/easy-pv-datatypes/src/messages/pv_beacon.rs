@@ -4,11 +4,9 @@ use std::fmt;
 use std::io::Read;
 use std::io::{Cursor, Result};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::ptr::eq;
 use uuid::Uuid;
 
 use crate::header::Command;
-use crate::header::HEADER_LENGTH;
 use crate::header::PvAccessHeader;
 
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
@@ -139,7 +137,6 @@ impl BeaconMessage {
             server_status_if,
         })
     }
-
 
     // todo not sure if all of those should get this treatment. at least the flags should be different
     pub fn into_beacon_frame(self) -> Result<Vec<u8>> {

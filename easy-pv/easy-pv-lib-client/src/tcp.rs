@@ -1,80 +1,77 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
 use crate::config::ClientConfig;
 use easy_pv_datatypes::{
-    header::{Command, PvAccessHeader},
+    codec::PvAccessDecoder,
+    frame::{PvAccessEncoder, PvAccessFrame},
+    header::Command,
     messages::{
         pv_echo::{EchoMessage, EchoResponse},
         pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse},
     },
 };
 
-use tokio::net::{
-    TcpStream,
-    tcp::{OwnedReadHalf, OwnedWriteHalf},
-};
+use futures::{SinkExt, StreamExt};
+use tokio::net::TcpStream;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio_util::codec::{FramedRead, FramedWrite};
 
 pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> anyhow::Result<()> {
-    let (mut reader, mut writer): (OwnedReadHalf, OwnedWriteHalf) = stream.into_split();
+    let (reader, writer): (OwnedReadHalf, OwnedWriteHalf) = stream.into_split();
 
-    // 🔹 Read initial validation request
-    let mut buffer = vec![0u8; config.buffer_size as usize];
-    let n = reader.read(&mut buffer).await?;
-    let request = ConnectionValidationRequest::from_bytes(&buffer[..n])?;
+    let mut framed_read = FramedRead::new(reader, PvAccessDecoder);
+    let mut framed_write = FramedWrite::new(writer, PvAccessEncoder);
+
+    // 🔹 Step 1: Expect ConnectionValidationRequest from server
+    let Some(Ok(request_frame)) = framed_read.next().await else {
+        anyhow::bail!("Failed to receive connection validation frame");
+    };
+
+    let header = request_frame.0;
+    if header.message_command != Command::ConnectionValidation {
+        anyhow::bail!(
+            "Unexpected command: expected validation, got {:?}",
+            header.message_command
+        );
+    }
+
+    let request = ConnectionValidationRequest::from_bytes(&request_frame.payload)?;
     println!("📩 Received validation request: {:?}", request);
 
-    // 🔸 Send validation response
+    // 🔸 Step 2: Respond with ConnectionValidationResponse
     let response = ConnectionValidationResponse::new(
         config.buffer_size,
-        config.introspection_registry_max_size.try_into().unwrap(),
+        config.introspection_registry_max_size.try_into()?,
         ConnectionQoS::PRIORITY_MASK,
-        "authz".to_string(),
+        "".to_string(),
     );
-    let response_bytes = response.to_bytes()?;
-    writer.write_all(&response_bytes).await?;
-    println!("📤 Sent validation response.");
 
-    // 🔁 Start message loop
-    let mut frame_buf = vec![0u8; 1500];
-    loop {
-        let n = match reader.read(&mut frame_buf).await {
-            Ok(0) => {
-                println!("🔌 Connection closed by server.");
-                break;
-            }
-            Ok(n) => n,
-            Err(e) => {
-                println!("❗ Read error: {}", e);
-                break;
-            }
-        };
+    let response_frame = response.into_frame(Command::ConnectionValidation, 0)?;
+    framed_write.send(response_frame).await?;
+    println!("📤 Sent validation response");
 
-        // parse message header here
-        let header = PvAccessHeader::from_bytes(&frame_buf[..8])?;
+    // 🔁 Step 3: Process messages
+    while let Some(frame_result) = framed_read.next().await {
+        let PvAccessFrame { header, payload } = frame_result?;
+
+        println!("📦 Received message: {:?}", header.message_command);
         let is_big_endian = header.is_big_endian();
-
-        println!("📦 Received message command: {:?}", header.message_command);
 
         match header.message_command {
             Command::Echo => {
-                let echo = EchoMessage::from_bytes(&frame_buf[8..n], is_big_endian)?;
+                let echo = EchoMessage::from_bytes(&payload, is_big_endian)?;
                 println!("🟡 Echo message: {:?}", echo);
 
                 let response = EchoResponse {
                     repeated_bytes: echo.random_bytes.clone(),
                 };
-
-                let response_bytes = response.to_bytes(is_big_endian)?;
-                writer.write_all(&response_bytes).await?;
+                let response_frame = response.into_frame(Command::Echo, header.flags)?;
+                framed_write.send(response_frame).await?;
             }
-            _ => {
-                println!(
-                    "⚠️ Unknown or unhandled message command: {:?}",
-                    header.message_command
-                );
+            other => {
+                println!("⚠️ Unhandled message command: {:?}", other);
             }
         }
     }
 
+    println!("🔌 Server closed the connection.");
     Ok(())
 }

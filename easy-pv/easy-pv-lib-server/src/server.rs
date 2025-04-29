@@ -6,20 +6,16 @@ use easy_pv_datatypes::header::{Command, PvAccessHeader};
 use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
 use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
 use easy_pv_datatypes::messages::pv_validation::{
-    ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse,
+    , ConnectionValidationRequest, ConnectionValidationResponse,
 };
+use futures::SinkExt;
 use futures::StreamExt;
-use futures::sink::SinkExt;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
-use tokio::{
-    net::{TcpListener, TcpStream},
-    signal,
-    sync::{Mutex, oneshot},
-};
+use tokio::sync::Mutex;
+use tokio::{net::TcpListener, signal, sync::oneshot};
 use tokio_util::codec::{FramedRead, FramedWrite};
 use uuid::Uuid;
 
@@ -80,78 +76,62 @@ async fn handle_tcp_client(
     let mut framed_read = FramedRead::new(reader, PvAccessDecoder);
     let mut framed_write = FramedWrite::new(writer, frame::PvAccessEncoder);
 
-    // todo send the first message as a ConnectionValidationRequest - wait this is actually first sent by the server
+    // ✅ Step 1: Send ConnectionValidationRequest
     let request = ConnectionValidationRequest::new(
         config.connection_validation.receive_buffer_size,
         config.connection_validation.introspection_registry_max_size,
-        Vec::new(),
+        Vec::new(), // authz mechanisms
     );
 
+    let request_bytes = request.to_bytes()?;
+    let request_header =
+        PvAccessHeader::new(0, Command::ConnectionValidation, request_bytes.len() as u32);
 
+    let request_frame = PvAccessFrame {
+        header: request_header,
+        payload: Bytes::from(request_bytes),
+    };
 
+    framed_write.send(request_frame).await?;
+    println!("✅ Sent connection validation request");
+
+    // ✅ Step 2: Wait for ConnectionValidationResponse
     if let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
-        if header.message_command == Command::ConnectionValidation {
-            println!("Received connection validation request: {:?}", header);
 
-            let request = ConnectionValidationRequest::from_bytes(&payload)?;
-            println!("Parsed connection validation request: {:?}", request);
-
-            // todo read out from config
-            let response = ConnectionValidationResponse {
-                client_receive_buffer_size: 1024,
-                client_introspection_registry_max_size: 1024,
-                connection_qos: ConnectionQoS::LOW_LATENCY, //todo no idea if this is correct
-                auth_nz: String::new(),
-            };
-
-            let response_bytes = response.to_bytes()?;
-            let response_header = PvAccessHeader::new(
-                0,
-                Command::ConnectionValidation,
-                response_bytes.len() as u32,
-            );
-            let response_frame = PvAccessFrame {
-                header: response_header,
-                payload: Bytes::from(response_bytes),
-            };
-
-            framed_write.send(response_frame).await?;
-            println!("Sent connection validation response");
-        } else {
-            println!("Unexpected first message: {:?}", header.message_command);
-            return Err("Expected connection validation request".into());
+        if header.message_command != Command::ConnectionValidation {
+            return Err(format!(
+                "❌ Expected ConnectionValidationResponse, got {:?}",
+                header.message_command
+            )
+            .into());
         }
+
+        let response = ConnectionValidationResponse::from_bytes(&payload)?;
+        println!("✅ Received connection validation response: {:?}", response);
+
+        // Proceed to message loop...
     } else {
-        println!("No first message received");
-        return Err("No message received from client".into());
+        return Err("❌ No message received from client".into());
     }
 
-    // Continue processing other messages
+    // ✅ Step 3: Enter message-processing loop
     while let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
-        match header.message_command {
-            Command::Beacon => {
-                println!("Received ping command: {:?}", header);
-                let response_header = PvAccessHeader::new(0, Command::Echo, 0);
-                let response_frame = PvAccessFrame {
-                    header: response_header,
-                    payload: Bytes::new(),
-                };
-                framed_write.send(response_frame).await?;
-                println!("Sent ping response");
-            }
-            Command::Echo => {
-                println!("Received echo command: {:?}", header);
-                payload.iter().for_each(|b| print!("{:02X} ", b));
-                let m = EchoMessage::from_bytes(&payload, header.is_big_endian())?;
-                let e = EchoResponse {
-                    repeated_bytes: m.random_bytes.clone(),
-                };
-                let response_bytes = e.to_bytes(header.is_big_endian())?;
 
+        match header.message_command {
+            Command::Echo => {
+                let echo = EchoMessage::from_bytes(&payload, header.is_big_endian())?;
+                println!("🔁 Received Echo: {:?}", echo);
+
+                let response = EchoResponse {
+                    repeated_bytes: echo.random_bytes.clone(),
+                };
+
+                let response_bytes = response.to_bytes(header.is_big_endian())?;
                 let response_header =
                     PvAccessHeader::new(0, Command::Echo, response_bytes.len() as u32);
+
                 let response_frame = PvAccessFrame {
                     header: response_header,
                     payload: Bytes::from(response_bytes),
@@ -159,11 +139,13 @@ async fn handle_tcp_client(
 
                 framed_write.send(response_frame).await?;
             }
-            _ => {
-                println!("Unhandled command: {:?}", header.message_command);
+            other => {
+                println!("⚠️ Unhandled message command: {:?}", other);
             }
         }
     }
+
+    println!("🔌 Client disconnected");
     Ok(())
 }
 

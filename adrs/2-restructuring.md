@@ -6,4 +6,6 @@ Designed a new todo list, and a simplified library design.
 Big mess was there with traits and from_bytes, etc - now try_into is better, as well as the hesitation in using the full type vs `&[u8]`.
 There might be another rewrite for Maturin python compatibility.
 also each kind of parsing as a feature, for compile time inclusion.
+ 
+the new approach is in easy-pv
 
