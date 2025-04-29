@@ -76,22 +76,27 @@ impl BeaconMessage {
 
     /// 🔹 Serialize to bytes
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        println!("self: {:?}", self);
         let mut buffer = Vec::new();
 
         buffer.extend_from_slice(&self.guid);
         buffer.write_u8(self.flags)?;
         buffer.write_u8(self.beacon_sequence_id)?;
         buffer.write_u16::<BigEndian>(self.change_count)?;
-        match self.server_address {
-            IpAddr::V4(ipv4) => buffer.extend_from_slice(&ipv4.octets()),
-            IpAddr::V6(ipv6) => buffer.extend_from_slice(&ipv6.octets()),
-        }
+        
+        let slice = match self.server_address {
+            IpAddr::V4(ipv4) => &ipv4.to_ipv6_mapped().octets(),  
+            IpAddr::V6(ipv6) => &ipv6.octets(),
+        };
+        buffer.extend_from_slice(slice);
+        // 
         buffer.write_u16::<BigEndian>(self.server_port)?;
 
         buffer.write_u8(self.protocol.len() as u8)?;
         buffer.extend_from_slice(self.protocol.as_bytes());
 
         buffer.write_u8(self.server_status_if)?;
+        println!("new beacon body Buffer length: {}", buffer.len());
 
         Ok(buffer)
     }
@@ -105,9 +110,14 @@ impl BeaconMessage {
         let flags = cursor.read_u8()?;
         let beacon_sequence_id = cursor.read_u8()?;
         let change_count = cursor.read_u16::<BigEndian>()?;
-        let mut server_address = [0u8; 16];
-        let _ = cursor.read_exact(&mut server_address); // Read bytes into the buffer
-        let addr: IpAddr = parse_ip(&server_address); // Convert the buffer into an IpAddr
+        // let mut server_address = [0u8; 16];
+        // let _ = cursor.read_exact(&mut server_address); // Read bytes into the buffer
+        // todo read and parse whether its IPv4 or IPv6
+        let mut server_address_buffer = [0u8; 16];
+        // read ::ffff:ipv4 address ipv6 as ipv4
+        let _ = cursor.read_exact(&mut server_address_buffer)?; // Read bytes into the buffer
+        // server_address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        let addr: IpAddr = parse_ip(&server_address_buffer); // Convert the buffer into an IpAddr
         let server_port = cursor.read_u16::<BigEndian>()?;
 
         let protocol_length = cursor.read_u8()?;
@@ -160,4 +170,34 @@ fn test_parse_body_correctly() {
     println!("{:?}", body_bytes_after_header);
     let beacon = BeaconMessage::from_bytes(&body_bytes_after_header).unwrap();
     assert_eq!(beacon.flags, 0);
+}
+
+#[test]
+fn test_parse_body_correctly_2() {
+    let body_bytes_after_header = [
+        254, 53, 201, 39, 174, 163, 67, 67, 173, 0, 75, 96, 0, 1, 0, 0, 127, 0, 0, 1, 21, 200, 3,
+        116, 99, 112, 0,
+    ];
+    println!("{:?}", body_bytes_after_header);
+    let beacon = BeaconMessage::from_bytes(&body_bytes_after_header).unwrap();
+    assert_eq!(beacon.flags, 0);
+}
+
+#[test]
+fn test_crease_body_correctly() {
+    let n = BeaconMessage {
+        guid: [87, 186, 234, 203, 160, 226, 76, 60, 157, 167, 71, 104],
+        flags: 0,
+        beacon_sequence_id: 1,
+        change_count: 0,
+        server_address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        server_port: 5576,
+        protocol: "tcp".to_string(),
+        server_status_if: 0,
+    };
+    let bytes = n.to_bytes().unwrap();
+    println!("{:?}", bytes);
+    let beacon = BeaconMessage::from_bytes(&bytes).unwrap();
+    assert_eq!(beacon.flags, 0);
+    assert_eq!(beacon.beacon_sequence_id, 1);
 }

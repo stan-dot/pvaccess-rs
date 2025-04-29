@@ -1,16 +1,16 @@
 
-
 # todo
 
 using the outlining strategy
+
 - [x] make 3 new packages with hello world
-    - [x] make a library for the datatypes
-    - [x] binary for client
-    - [x] binary for server
-    - [x] library for server logic
-    - [x] import the server library into the server
-    - [x] add a mod file
-    - [x] 4th one for datatypes
+  - [x] make a library for the datatypes
+  - [x] binary for client
+  - [x] binary for server
+  - [x] library for server logic
+  - [x] import the server library into the server
+  - [x] add a mod file
+  - [x] 4th one for datatypes
 
 - [ ] define the state
   - [x] add the config crate
@@ -27,7 +27,8 @@ using the outlining strategy
 - [x] add try into instead of from_bytes, it's more idiomatic - do that for the pv_echo copy
 
 ## For Proof of Concept
-- [x] add a simple client - 
+
+- [x] add a simple client -
 - [x] delete the lib features code
 - [x] server parts
   - [x] start the udp task
@@ -45,8 +46,8 @@ using the outlining strategy
   - [ ] to server
 
 ## For later
+
 - [ ] work out the connection caching
 - [ ] pass the endianness flag into the handling of the frame
 - [ ] connect the fieldesc
 - [ ] websocket show status
-
