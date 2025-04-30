@@ -45,11 +45,14 @@ using the outlining strategy
 - [x] pass the endianness flag into the handling of the frame
 
 
+## for many tasks sharing data
+- [x] add tracing instead of println - no TUI
+
 ## Full SDK variant
-  - [ ] rust SDK kind of - being able to define REST endpoints to trigger TCP messages once connection is established - complex client state.
+  - [ ] rust SDK kind of - being able to define REST endpoints to trigger TCP messages once connection is established - complex client state. - but actually it's not clear what is the generic API
   - [ ] double client talking - in another binary crate, launch two clients with different configs
   - [ ] echo and persistent connection
-- [ ] add echo read-write
+- [ ] add echo read-write - that again depends on the API
   - [ ] to client
   - [ ] to server
 - [ ] for better UX and DX

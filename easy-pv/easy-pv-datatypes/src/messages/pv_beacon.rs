@@ -1,4 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use tracing::debug;
 use std::env;
 use std::fmt;
 use std::io::Read;
@@ -117,7 +118,7 @@ impl BeaconMessage {
 impl ToBytes for BeaconMessage {
     /// 🔹 Serialize to bytes
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        println!("self: {:?}", self);
+        debug!("self: {:?}", self);
         let mut buffer = Vec::new();
 
         buffer.extend_from_slice(&self.guid);

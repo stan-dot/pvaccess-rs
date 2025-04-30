@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Result};
+use tracing::debug;
 
 use crate::messages::{flags::PvHeaderFlags, into::ToBytes};
 
@@ -148,8 +149,8 @@ fn test_from_bytes_correct() {
         202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2, 0,
         0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
     ];
-    println!("{:?}", bytes);
+    debug!("{:?}", bytes);
     let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
-    println!("{:?}", h);
+    debug!("{:?}", h);
     assert_eq!(h.magic, 0xCA)
 }

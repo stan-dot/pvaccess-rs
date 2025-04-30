@@ -43,7 +43,7 @@ impl AppConfig {
             DEV_PATH.to_string()
         });
 
-        println!("Loading config from: {}", config_path);
+        info!("Loading config from: {}", config_path);
 
         let settings = RawConfig::builder()
             .add_source(File::with_name(&config_path))

@@ -11,6 +11,8 @@ use easy_pv_datatypes::{
     },
 };
 
+use tracing::{debug, error, info, trace, warn};
+
 use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -36,7 +38,7 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
     }
 
     let request = ConnectionValidationRequest::from_bytes(&request_frame.1)?;
-    println!("📩 Received validation request: {:?}", request);
+    info!("📩 Received validation request: {:?}", request);
 
     // 🔸 Step 2: Respond with ConnectionValidationResponse
     let response = ConnectionValidationResponse::new(
@@ -53,19 +55,19 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
     let response_frame =
         response.into_frame(Command::ConnectionValidation, response_flags.bits())?;
     framed_write.send(response_frame).await?;
-    println!("📤 Sent validation response");
+    info!("📤 Sent validation response");
 
     // 🔁 Step 3: Process messages
     while let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
 
-        println!("📦 Received message: {:?}", header.message_command);
+        debug!("📦 Received message: {:?}", header.message_command);
         let is_big_endian = header.is_big_endian();
 
         match header.message_command {
             Command::Echo => {
                 let echo = EchoMessage::from_bytes(&payload, is_big_endian)?;
-                println!("🟡 Echo message: {:?}", echo);
+                debug!("🟡 Echo message: {:?}", echo);
 
                 let response = EchoResponse {
                     repeated_bytes: echo.random_bytes.clone(),
@@ -74,12 +76,12 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
                 framed_write.send(response_frame).await?;
             }
             other => {
-                println!("⚠️ Unhandled message command: {:?}", other);
+                warn!("⚠️ Unhandled message command: {:?}", other);
             }
         }
     }
 
-    println!("🔌 Server closed the connection.");
+    info!("🔌 Server closed the connection.");
     // todo switch to udp again
     Ok(())
 }

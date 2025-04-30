@@ -12,5 +12,7 @@ async fn main() {
         buffer_size: 105576,
         introspection_registry_max_size: 15576,
     };
-    start_client(config).await;
+    // here mpsc receiver
+    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+    start_client(config, rx).await;
 }

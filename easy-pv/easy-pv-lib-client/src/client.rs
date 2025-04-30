@@ -1,19 +1,20 @@
 use std::net::{IpAddr, SocketAddr};
+use tracing::{debug, error, info, trace, warn};
 
-use crate::config::ClientConfig;
 use crate::tcp::handle_tcp_session;
+use crate::{command::ClientCommand, config::ClientConfig};
 use easy_pv_datatypes::{
     header::{Command, PvAccessHeader},
     messages::pv_beacon::BeaconMessage,
 };
 
+use tokio::sync::mpsc;
 use tokio::{
     net::{TcpStream, UdpSocket},
     signal,
     sync::watch,
 };
 
-// todo here add client state struct that will hold from udp beacon to tcp connection
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -21,8 +22,12 @@ enum Mode {
     Tcp,
 }
 
-pub async fn start_client(config: ClientConfig) {
-    println!("starting the client v1 with config: {}", config);
+pub async fn start_client(config: ClientConfig, mut cmd_rx: mpsc::Receiver<ClientCommand>) {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
+    info!("starting the client v1 with config: {}", config);
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
     // todo auto mode switching is not working yet
@@ -52,13 +57,13 @@ pub async fn start_client(config: ClientConfig) {
     ));
 
     tokio::select! {
-        _ = signal::ctrl_c() => println!("Ctrl-C, shutting down..."),
-        _ = terminate_signal.recv() => println!("SIGTERM, shutting down..."),
+        _ = signal::ctrl_c() =>warn!("Ctrl-C, shutting down..."),
+        _ = terminate_signal.recv() =>warn!("SIGTERM, shutting down..."),
     }
 
     udp_task.abort();
     tcp_task.abort();
-    println!("Client shut down gracefully.");
+    info!("Client shut down gracefully.");
 }
 
 async fn run_tcp_mode(
@@ -74,7 +79,7 @@ async fn run_tcp_mode(
         }
 
         if beacon_rx.borrow().protocol != "tcp" {
-            println!("Beacon protocol is not TCP, skipping connection.");
+            warn!("Beacon protocol is not TCP, skipping connection.");
             continue;
         }
 
@@ -82,28 +87,28 @@ async fn run_tcp_mode(
         let server_ip = beacon.server_address;
         let server_port = beacon.server_port;
 
-        println!(
+        debug!(
             "Trying to connect to TCP server at {}:{}",
             server_ip, server_port
         );
 
         match TcpStream::connect((server_ip, server_port)).await {
             Ok(stream) => {
-                println!("✅ TCP session established.");
+                info!("✅ TCP session established.");
                 if let Err(e) = handle_tcp_session(stream, &config).await {
-                    println!("❌ Error during TCP session: {}", e);
+                    error!("❌ Error during TCP session: {}", e);
                     // switch back to UDP mode
                     let _ = mode_tx.send(Mode::Udp);
                 }
             }
             Err(e) => {
-                println!("TCP connection failed: {}", e);
+                error!("TCP connection failed: {}", e);
                 // Could revert to UDP here if desired
                 // beacon_rx.
                 // mode_rx
                 //     .send(Mode::Udp)
                 //     .expect("Failed to switch to UDP mode");
-                println!("not yet Switching to UDP mode.");
+                debug!("not yet Switching to UDP mode.");
             }
         }
     }
@@ -119,34 +124,34 @@ async fn run_udp_mode(
         .await
         .expect("Failed to bind UDP");
 
-    println!("Listening for server beacons on UDP: {}", bind_addr);
+    info!("Listening for server beacons on UDP: {}", bind_addr);
     let mut buf = vec![0u8; 1500];
 
     loop {
         match socket.recv_from(&mut buf).await {
             Ok((size, _src)) => {
                 if size < PvAccessHeader::LEN {
-                    println!("Received packet too short for header: {} bytes", size);
+                    warn!("Received packet too short for header: {} bytes", size);
                     continue;
                 }
 
                 // Step 1: Parse header first
                 let header_bytes = &buf[..PvAccessHeader::LEN];
-                // println!("full buffer for reference {:?}", buf);
+                debug!("full buffer for reference {:?}", buf);
                 let header = match PvAccessHeader::from_bytes(header_bytes) {
                     Ok(h) => h,
                     Err(e) => {
-                        println!("Invalid header: {}", e);
+                        warn!("Invalid header: {}", e);
                         continue;
                     }
                 };
-                println!("udp header bytes are {:?}", header_bytes);
-                println!("Parsed udp message header: {:?}", header);
+                debug!("udp header bytes are {:?}", header_bytes);
+                debug!("Parsed udp message header: {:?}", header);
 
                 // Step 2: Check if the full body is present
                 let expected_len = PvAccessHeader::LEN + header.payload_size as usize;
                 if size < expected_len {
-                    println!("Incomplete frame: expected {}, got {}", expected_len, size);
+                    warn!("Incomplete frame: expected {}, got {}", expected_len, size);
                     continue;
                 }
 
@@ -155,32 +160,32 @@ async fn run_udp_mode(
 
                 match Command::from(header.message_command) {
                     Command::Echo => {
-                        println!("Got echo over UDP (unexpected?)");
+                        info!("Got echo over UDP (unexpected?)");
                         // usually TCP, might be misrouted
                     }
                     Command::Beacon => {
                         match BeaconMessage::from_bytes(body_bytes) {
                             Ok(beacon) => {
-                                println!("Parsed beacon: {:?}", beacon);
+                                debug!("Parsed beacon: {:?}", beacon);
                                 let _ = beacon_tx.send(beacon.clone());
                                 let _ = mode_tx.send(Mode::Tcp);
                                 return; // switch to TCP mode
                             }
                             Err(e) => {
-                                println!("Failed to parse beacon body: {}", e);
+                                error!("Failed to parse beacon body: {}", e);
                             }
                         }
                     }
                     _ => {
-                        println!(
+                        error!(
                             "Received unknown command: {:?}, ignoring",
                             header.message_command
                         );
-                        println!("body bytes are {:?}", body_bytes);
+                        debug!("body bytes are {:?}", body_bytes);
                     }
                 }
             }
-            Err(e) => eprintln!("UDP recv error: {}", e),
+            Err(e) => error!("UDP recv error: {}", e),
         }
     }
 }
