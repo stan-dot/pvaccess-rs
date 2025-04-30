@@ -2,6 +2,8 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 use std::io::{Cursor, Result};
 
+use super::into::ToBytes;
+
 /// 🔹 Echo Message (Sent by Client)
 #[derive(Debug, Clone)]
 pub struct EchoMessage {
@@ -50,6 +52,16 @@ impl EchoMessage {
     }
 }
 
+impl ToBytes for EchoMessage {
+    /// 🔹 Serialize to bytes
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_u16::<BigEndian>(self.random_bytes.len() as u16)?;
+        buffer.extend_from_slice(&self.random_bytes);
+        Ok(buffer)
+    }
+}
+
 /// 🔹 Echo Response Message (Sent by Server)
 #[derive(Debug, Clone)]
 pub struct EchoResponse {
@@ -60,12 +72,6 @@ impl EchoResponse {
     /// 🔹 Serialize to bytes
     pub fn to_bytes(&self, is_big_endian: bool) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
-
-        if is_big_endian {
-            buffer.write_u16::<BigEndian>(self.repeated_bytes.len() as u16)?;
-        } else {
-            buffer.write_u16::<LittleEndian>(self.repeated_bytes.len() as u16)?;
-        }
 
         buffer.extend_from_slice(&self.repeated_bytes);
 
@@ -95,6 +101,20 @@ impl EchoResponse {
         Ok(Self {
             repeated_bytes: payload,
         })
+    }
+}
+
+impl ToBytes for EchoResponse {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_u16::<BigEndian>(self.repeated_bytes.len() as u16)?;
+        // if is_big_endian {
+        //     buffer.write_u16::<BigEndian>(self.repeated_bytes.len() as u16)?;
+        // } else {
+        //     buffer.write_u16::<LittleEndian>(self.repeated_bytes.len() as u16)?;
+        // }
+        buffer.extend_from_slice(&self.repeated_bytes);
+        Ok(buffer)
     }
 }
 

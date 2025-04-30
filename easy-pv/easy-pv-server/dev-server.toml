@@ -1,7 +1,12 @@
 [beacon]
-# todo consider using a dev mode where no long interval happens
+
+# in dev mode shorter intervals are used
 udp_initial_interval = 15
 udp_long_term_interval = 20 # prod is 60
+
+[beacon.udp_server_config]
+host= "0.0.0.0"
+port = 9001
 
 [websocket]
 host = "127.0.0.1"
@@ -10,3 +15,7 @@ port = 9001
 [network]
 host = "127.0.0.1"
 port = 5576
+
+[connection_validation]
+receive_buffer_size = 10576
+introspection_registry_max_size = 10576

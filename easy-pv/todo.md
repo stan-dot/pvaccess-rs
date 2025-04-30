@@ -40,7 +40,7 @@ using the outlining strategy
 - [x] parse the header
 - [ ] minimal working client and server for
   - [x] udp discovery
-  - [ ] add the into logic into the frame making
+  - [x] add the into logic into the frame making
   - [ ] FLAGS!!! need to happen really
   - [ ] double server talking
   - [ ] echo and persistent connection

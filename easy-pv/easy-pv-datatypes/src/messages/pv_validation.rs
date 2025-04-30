@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-// use std::io::{Cursor, Read, Result, Write};
 use std::io::{Cursor, Result};
-// use tokio::io::AsyncReadExt;
+
+use super::into::ToBytes;
 
 /// 🔹 Connection Validation Request (Sent by Server)
 #[derive(Debug, Clone)]
@@ -14,7 +14,6 @@ pub struct ConnectionValidationRequest {
 }
 
 impl ConnectionValidationRequest {
-
     pub fn new(
         server_receive_buffer_size: u32,
         server_introspection_registry_max_size: u16,
@@ -25,22 +24,6 @@ impl ConnectionValidationRequest {
             server_introspection_registry_max_size,
             auth_nz,
         };
-    }
-
-    /// 🔹 Serialize to bytes
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut buffer = Vec::new();
-        buffer.write_u32::<BigEndian>(self.server_receive_buffer_size)?;
-        buffer.write_u16::<BigEndian>(self.server_introspection_registry_max_size)?;
-
-        // Write authentication list
-        buffer.write_u8(self.auth_nz.len() as u8)?;
-        for auth in &self.auth_nz {
-            buffer.write_u8(auth.len() as u8)?;
-            buffer.extend_from_slice(auth.as_bytes());
-        }
-
-        Ok(buffer)
     }
 
     /// 🔹 Deserialize from bytes
@@ -67,6 +50,26 @@ impl ConnectionValidationRequest {
             server_introspection_registry_max_size,
             auth_nz,
         })
+    }
+}
+
+impl ToBytes for ConnectionValidationRequest {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer
+            .write_u32::<BigEndian>(self.server_receive_buffer_size)
+            .map_err(|e| anyhow!(e))?;
+        buffer
+            .write_u16::<BigEndian>(self.server_introspection_registry_max_size)
+            .map_err(|e| anyhow!(e))?;
+        buffer
+            .write_u8(self.auth_nz.len() as u8)
+            .map_err(|e| anyhow!(e))?;
+        for auth in &self.auth_nz {
+            buffer.write_u8(auth.len() as u8).map_err(|e| anyhow!(e))?;
+            buffer.extend_from_slice(auth.as_bytes());
+        }
+        Ok(buffer)
     }
 }
 
@@ -134,6 +137,17 @@ impl ConnectionValidationResponse {
     }
 }
 
+impl ToBytes for ConnectionValidationResponse {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_u32::<BigEndian>(self.client_receive_buffer_size)?;
+        buffer.write_u16::<BigEndian>(self.client_introspection_registry_max_size)?;
+        buffer.write_u16::<BigEndian>(self.connection_qos.bits())?;
+        buffer.write_u8(self.auth_nz.len() as u8)?;
+        buffer.extend_from_slice(self.auth_nz.as_bytes());
+        Ok(buffer)
+    }
+}
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ConnectionQoS: u16 {

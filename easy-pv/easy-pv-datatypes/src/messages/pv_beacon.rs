@@ -9,6 +9,8 @@ use uuid::Uuid;
 use crate::header::Command;
 use crate::header::PvAccessHeader;
 
+use super::into::ToBytes;
+
 /// 🔹 UDP Beacon Message (Sent with Command `0x01`)
 #[derive(Debug, Clone)]
 pub struct BeaconMessage {
@@ -72,33 +74,6 @@ impl BeaconMessage {
         }
     }
 
-    /// 🔹 Serialize to bytes
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        println!("self: {:?}", self);
-        let mut buffer = Vec::new();
-
-        buffer.extend_from_slice(&self.guid);
-        buffer.write_u8(self.flags)?;
-        buffer.write_u8(self.beacon_sequence_id)?;
-        buffer.write_u16::<BigEndian>(self.change_count)?;
-
-        let slice = match self.server_address {
-            IpAddr::V4(ipv4) => &ipv4.to_ipv6_mapped().octets(),
-            IpAddr::V6(ipv6) => &ipv6.octets(),
-        };
-        buffer.extend_from_slice(slice);
-        //
-        buffer.write_u16::<BigEndian>(self.server_port)?;
-
-        buffer.write_u8(self.protocol.len() as u8)?;
-        buffer.extend_from_slice(self.protocol.as_bytes());
-
-        buffer.write_u8(self.server_status_if)?;
-        // println!("new beacon body Buffer length: {}", buffer.len());
-
-        Ok(buffer)
-    }
-
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut cursor = Cursor::new(bytes);
 
@@ -137,14 +112,34 @@ impl BeaconMessage {
             server_status_if,
         })
     }
+}
 
-    // todo not sure if all of those should get this treatment. at least the flags should be different
-    pub fn into_beacon_frame(self) -> Result<Vec<u8>> {
-        let body = self.to_bytes()?;
-        let header = PvAccessHeader::new(0, Command::Beacon, body.len() as u32);
-        let mut frame = header.to_bytes()?;
-        frame.extend_from_slice(&body);
-        Ok(frame)
+impl ToBytes for BeaconMessage {
+    /// 🔹 Serialize to bytes
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        println!("self: {:?}", self);
+        let mut buffer = Vec::new();
+
+        buffer.extend_from_slice(&self.guid);
+        buffer.write_u8(self.flags)?;
+        buffer.write_u8(self.beacon_sequence_id)?;
+        buffer.write_u16::<BigEndian>(self.change_count)?;
+
+        let slice = match self.server_address {
+            IpAddr::V4(ipv4) => &ipv4.to_ipv6_mapped().octets(),
+            IpAddr::V6(ipv6) => &ipv6.octets(),
+        };
+        buffer.extend_from_slice(slice);
+        //
+        buffer.write_u16::<BigEndian>(self.server_port)?;
+
+        buffer.write_u8(self.protocol.len() as u8)?;
+        buffer.extend_from_slice(self.protocol.as_bytes());
+
+        buffer.write_u8(self.server_status_if)?;
+        // println!("new beacon body Buffer length: {}", buffer.len());
+
+        Ok(buffer)
     }
 }
 

@@ -1,8 +1,6 @@
 use bytes::{Buf, BytesMut};
-use futures::StreamExt;
 use std::io;
-use std::sync::{Arc, Mutex};
-use tokio_util::codec::{Decoder, FramedRead};
+use tokio_util::codec::Decoder;
 
 use crate::header::PvAccessHeader;
 
@@ -18,6 +16,8 @@ impl Decoder for PvAccessDecoder {
             return Ok(None);
         }
 
+        println!("Decoding PvAccess frame...");
+        println!("Buffer length: {}", src.len());
         let header_bytes = &src[..PvAccessHeader::LEN];
         let header = PvAccessHeader::from_bytes(header_bytes)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid header"))?;

@@ -3,10 +3,11 @@ use bytes::Bytes;
 use easy_pv_datatypes::codec::PvAccessDecoder;
 use easy_pv_datatypes::frame::{self, PvAccessFrame};
 use easy_pv_datatypes::header::{Command, PvAccessHeader};
+use easy_pv_datatypes::messages::into::{IntoPvAccessFrame, ToBytes};
 use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
 use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
 use easy_pv_datatypes::messages::pv_validation::{
-    , ConnectionValidationRequest, ConnectionValidationResponse,
+    ConnectionValidationRequest, ConnectionValidationResponse,
 };
 use futures::SinkExt;
 use futures::StreamExt;
@@ -83,14 +84,7 @@ async fn handle_tcp_client(
         Vec::new(), // authz mechanisms
     );
 
-    let request_bytes = request.to_bytes()?;
-    let request_header =
-        PvAccessHeader::new(0, Command::ConnectionValidation, request_bytes.len() as u32);
-
-    let request_frame = PvAccessFrame {
-        header: request_header,
-        payload: Bytes::from(request_bytes),
-    };
+    let request_frame = request.into_frame(Command::ConnectionValidation, 0)?;
 
     framed_write.send(request_frame).await?;
     println!("✅ Sent connection validation request");
@@ -154,7 +148,12 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
     let beacon_addr = config.network.host;
     let intitial_interval = config.beacon.udp_initial_interval;
 
-    let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
+    let socket = UdpSocket::bind((
+        config.beacon.udp_server_config.host,
+        config.beacon.udp_server_config.port,
+    ))
+    .await
+    .unwrap();
     socket.set_broadcast(true).unwrap();
     println!(
         "UDP beacon started. Initial interval: {}s, then switching to {}s.",
@@ -183,11 +182,13 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
     for i in 1..length {
         let mut new_messsage = message_base.clone();
         new_messsage.beacon_sequence_id = i;
-        let beacon_bytes = new_messsage.into_beacon_frame().unwrap();
-        let debug_bytes = format!("full message bytes {:?}", beacon_bytes.to_ascii_lowercase());
+        let beacon_bytes = new_messsage.into_frame(Command::Beacon, 000111).unwrap();
+        let header_bytes = beacon_bytes.header.to_bytes().unwrap();
+        let full_bytes = [header_bytes, beacon_bytes.payload.to_vec()].concat();
+        let debug_bytes = format!("full message bytes {:?}", beacon_bytes);
         println!("{}", &debug_bytes);
 
-        if let Err(e) = socket.send_to(&beacon_bytes, &full_address).await {
+        if let Err(e) = socket.send_to(&full_bytes, &full_address).await {
             eprintln!("failed to send UDP beacon {:?}", e);
         } else {
             println!("Short initial UDP beacon sent to {}", beacon_addr);
@@ -202,14 +203,16 @@ async fn send_udp_beacons(udp_active: Arc<AtomicBool>, config: AppConfig) {
 
     loop {
         let mut new_mesage = message_base.clone();
-        // todo should increment the number right
         new_mesage.beacon_sequence_id += 1;
-        let beacon_bytes = new_mesage.into_beacon_frame().unwrap();
-        let debug_bytes = format!("full message bytes {:?}", beacon_bytes.to_ascii_lowercase());
+        let beacon_frame = new_mesage.into_frame(Command::Beacon, 000111).unwrap();
+        let header_bytes = beacon_frame.header.to_bytes().unwrap();
+        let full_bytes = [header_bytes, beacon_frame.payload.to_vec()].concat();
+
+        let debug_bytes = format!("full message bytes {:?}", beacon_frame);
         println!("{}", &debug_bytes);
         println!("Sending UDP beacon to {}", beacon_addr);
         tokio::time::sleep(tokio::time::Duration::from_secs(long_term_interval)).await;
-        if let Err(e) = socket.send_to(&beacon_bytes, &full_address).await {
+        if let Err(e) = socket.send_to(&full_bytes, &full_address).await {
             eprintln!("failed to send UDP beacon {:?}", e);
         } else {
             println!("sent UDP beacon to {}", beacon_addr);

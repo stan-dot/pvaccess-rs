@@ -19,6 +19,7 @@ pub struct ConnectionValidationParams {
 
 #[derive(Debug, Deserialize, Copy, Clone)]
 pub struct BeaconConfig {
+    pub udp_server_config: ServerConfig,
     pub udp_initial_interval: u64,
     pub udp_long_term_interval: u64,
 }

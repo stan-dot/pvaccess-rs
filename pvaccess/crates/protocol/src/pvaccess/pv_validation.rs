@@ -1,9 +1,7 @@
 use anyhow::anyhow;
 use bitflags::bitflags;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-// use std::io::{Cursor, Read, Result, Write};
 use std::io::{Cursor, Result};
-// use tokio::io::AsyncReadExt;
 
 /// 🔹 Connection Validation Request (Sent by Server)
 #[derive(Debug, Clone)]

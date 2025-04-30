@@ -4,6 +4,8 @@ use std::{
     io::{Cursor, Result},
 };
 
+use crate::messages::into::ToBytes;
+
 pub const HEADER_LENGTH: usize = 8; // Header length in bytes
 
 /// 🔹 `pvAccess` Protocol Header (fixed 8-byte structure)
@@ -63,7 +65,10 @@ impl PvAccessHeader {
         let mut cursor = Cursor::new(bytes);
         let magic = cursor.read_u8()?;
         if magic != 0xCA {
-            let error_text = format!("Invalid magic byte in bytes {:?}", bytes.to_ascii_lowercase());
+            let error_text = format!(
+                "Invalid magic byte in bytes {:?}",
+                bytes.to_ascii_lowercase()
+            );
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 error_text,
@@ -89,25 +94,6 @@ impl PvAccessHeader {
         })
     }
 
-    /// 🔹 Serialize to bytes
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        {
-            use byteorder::WriteBytesExt;
-            let mut buffer = Vec::new();
-            buffer.write_u8(self.magic)?;
-            buffer.write_u8(self.version)?;
-            buffer.write_u8(self.flags)?;
-            buffer.write_u8(self.message_command as u8)?;
-
-            if self.flags & 0b1000_0000 != 0 {
-                buffer.write_u32::<BigEndian>(self.payload_size)?;
-            } else {
-                buffer.write_u32::<LittleEndian>(self.payload_size)?;
-            }
-            Ok(buffer)
-        }
-    }
-
     /// 🔹 Check if message is segmented
     pub fn is_segmented(&self) -> bool {
         matches!(
@@ -124,6 +110,27 @@ impl PvAccessHeader {
     /// 🔹 Check endianness
     pub fn is_big_endian(&self) -> bool {
         self.flags & 0b1000_0000 != 0
+    }
+}
+
+impl ToBytes for PvAccessHeader {
+    /// 🔹 Serialize to bytes
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        {
+            use byteorder::WriteBytesExt;
+            let mut buffer = Vec::new();
+            buffer.write_u8(self.magic)?;
+            buffer.write_u8(self.version)?;
+            buffer.write_u8(self.flags)?;
+            buffer.write_u8(self.message_command as u8)?;
+
+            if self.flags & 0b1000_0000 != 0 {
+                buffer.write_u32::<BigEndian>(self.payload_size)?;
+            } else {
+                buffer.write_u32::<LittleEndian>(self.payload_size)?;
+            }
+            Ok(buffer)
+        }
     }
 }
 

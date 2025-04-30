@@ -1,11 +1,10 @@
 use crate::config::ClientConfig;
 use easy_pv_datatypes::{
     codec::PvAccessDecoder,
-    frame::{PvAccessEncoder, PvAccessFrame},
+    frame::{PvAccessEncoder},
     header::Command,
     messages::{
-        pv_echo::{EchoMessage, EchoResponse},
-        pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse},
+        into::IntoPvAccessFrame, pv_echo::{EchoMessage, EchoResponse}, pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse}
     },
 };
 
@@ -22,7 +21,7 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
 
     // 🔹 Step 1: Expect ConnectionValidationRequest from server
     let Some(Ok(request_frame)) = framed_read.next().await else {
-        anyhow::bail!("Failed to receive connection validation frame");
+        anyhow::bail!("Failed to receive connection validation request frame");
     };
 
     let header = request_frame.0;
@@ -33,7 +32,7 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
         );
     }
 
-    let request = ConnectionValidationRequest::from_bytes(&request_frame.payload)?;
+    let request = ConnectionValidationRequest::from_bytes(&request_frame.1)?;
     println!("📩 Received validation request: {:?}", request);
 
     // 🔸 Step 2: Respond with ConnectionValidationResponse
@@ -50,7 +49,7 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
 
     // 🔁 Step 3: Process messages
     while let Some(frame_result) = framed_read.next().await {
-        let PvAccessFrame { header, payload } = frame_result?;
+        let ( header, payload ) = frame_result?;
 
         println!("📦 Received message: {:?}", header.message_command);
         let is_big_endian = header.is_big_endian();
