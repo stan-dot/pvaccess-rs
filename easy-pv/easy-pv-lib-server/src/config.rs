@@ -2,6 +2,7 @@ use config::{Config as RawConfig, File};
 use serde::Deserialize;
 use std::env;
 use std::net::{IpAddr, SocketAddr};
+use tracing::{info};
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub struct AppConfig {

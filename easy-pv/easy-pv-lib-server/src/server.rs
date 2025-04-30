@@ -12,22 +12,23 @@ use easy_pv_datatypes::messages::pv_validation::{
 };
 use futures::SinkExt;
 use futures::StreamExt;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tokio_util::codec::{FramedRead, FramedWrite};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 pub async fn start_server(config: AppConfig) {
-    let initial_server_state = ServerState {
-        connections: todo!(),
-        channels: todo!(),
-        logs: todo!(),
-    };
+    let state = Arc::new(ServerState {
+        connections: Arc::new(Mutex::new(HashMap::new())),
+        channels: Arc::new(Mutex::new(HashMap::new())),
+        logs: Arc::new(Mutex::new(Vec::new())),
+    });
 
     let mut terminate_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -35,20 +36,35 @@ pub async fn start_server(config: AppConfig) {
     let ip = config.network.host.to_string() + ":" + &config.network.port.to_string();
     let listener = TcpListener::bind(ip).await.unwrap();
 
+    // let tcp_task = tokio::spawn(async move {
+    //     loop {
+    //         let (socket, addr) = listener.accept().await.unwrap();
+    //         debug!("New connection from: {}", addr);
+
+    //         tokio::spawn(async move {
+    //             if let Err(e) = handle_tcp_client(socket, Arc::clone(&state), config.clone()).await
+    //             {
+    //                 error!("Client error: {}", e);
+    //             }
+    //         });
+    //     }
+    // });
+
     let tcp_task = tokio::spawn(async move {
-        loop {
-            let (socket, addr) = listener.accept().await.unwrap();
-            debug!("New connection from: {}", addr);
+    loop {
+        let (socket, addr) = listener.accept().await.unwrap();
+        debug!("New connection from: {}", addr);
 
-            let state = Arc::new(Mutex::new(initial_server_state));
+        let state = Arc::clone(&state); // 👈 Clone inside loop!
+        let config = config.clone();
 
-            tokio::spawn(async move {
-                if let Err(e) = handle_tcp_client(socket, state, config.clone()).await {
-                    error!("Client error: {}", e);
-                }
-            });
-        }
-    });
+        tokio::spawn(async move {
+            if let Err(e) = handle_tcp_client(socket, state, config).await {
+                error!("Client error: {}", e);
+            }
+        });
+    }
+});
 
     let udp_active = Arc::new(AtomicBool::new(true));
     let udp_active_clone = Arc::clone(&udp_active);
@@ -76,7 +92,7 @@ pub async fn start_server(config: AppConfig) {
 
 async fn handle_tcp_client(
     mut stream: TcpStream,
-    _state: Arc<Mutex<ServerState>>,
+    _state: Arc<ServerState>,
     config: AppConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (reader, writer) = stream.split();

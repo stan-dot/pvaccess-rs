@@ -27,12 +27,12 @@ impl ConnectionValidationRequest {
     }
 
     /// 🔹 Deserialize from bytes
+    // todo make dependent on the header flag
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut cursor = Cursor::new(bytes);
         let server_receive_buffer_size = cursor.read_u32::<BigEndian>()?;
         let server_introspection_registry_max_size = cursor.read_u16::<BigEndian>()?;
 
-        // todo make dependent on the header flag
         let auth_count = cursor.read_u8()? as usize;
         let mut auth_nz = Vec::new();
         for _ in 0..auth_count {

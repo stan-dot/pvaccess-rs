@@ -10,9 +10,9 @@ pub enum SessionCommand {
     // Add others like CreateChannel, GetStats, etc.
 }
 
-type ConnectionMap = Arc<Mutex<HashMap<SocketAddr, mpsc::Sender<SessionCommand>>>>;
+pub type ConnectionMap = Arc<Mutex<HashMap<SocketAddr, mpsc::Sender<SessionCommand>>>>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ServerState {
     pub connections: ConnectionMap,
     pub channels: Arc<Mutex<HashMap<String, ChannelState>>>,

@@ -1,14 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use tracing::debug;
 use std::env;
 use std::fmt;
 use std::io::Read;
 use std::io::{Cursor, Result};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use tracing::debug;
 use uuid::Uuid;
-
-use crate::header::Command;
-use crate::header::PvAccessHeader;
 
 use super::into::ToBytes;
 
@@ -84,14 +81,9 @@ impl BeaconMessage {
         let flags = cursor.read_u8()?;
         let beacon_sequence_id = cursor.read_u8()?;
         let change_count = cursor.read_u16::<BigEndian>()?;
-        // let mut server_address = [0u8; 16];
-        // let _ = cursor.read_exact(&mut server_address); // Read bytes into the buffer
-        // todo read and parse whether its IPv4 or IPv6
         let mut server_address_buffer = [0u8; 16];
-        // read ::ffff:ipv4 address ipv6 as ipv4
-        let _ = cursor.read_exact(&mut server_address_buffer)?; // Read bytes into the buffer
-        // server_address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        let addr: IpAddr = parse_ip(&server_address_buffer); // Convert the buffer into an IpAddr
+        let _ = cursor.read_exact(&mut server_address_buffer)?;
+        let addr: IpAddr = parse_ip(&server_address_buffer);
         let server_port = cursor.read_u16::<BigEndian>()?;
 
         let protocol_length = cursor.read_u8()?;

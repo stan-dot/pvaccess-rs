@@ -16,3 +16,18 @@ async fn main() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(32);
     start_client(config, rx).await;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use easy_pv_lib_client::helpers::spawn_test_client;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_two_clients() {
+        let c1 = tokio::spawn(spawn_test_client("Client-1", 0));
+        let c2 = tokio::spawn(spawn_test_client("Client-2", 1));
+
+        let _ = tokio::join!(c1, c2);
+    }
+}

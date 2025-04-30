@@ -47,15 +47,17 @@ using the outlining strategy
 
 ## for many tasks sharing data
 - [x] add tracing instead of println - no TUI
+- [ ] websocket based full insight interface https://redis.io/insight/
 
 ## Full SDK variant
   - [ ] rust SDK kind of - being able to define REST endpoints to trigger TCP messages once connection is established - complex client state. - but actually it's not clear what is the generic API
   - [ ] double client talking - in another binary crate, launch two clients with different configs
-  - [ ] echo and persistent connection
+  - [ ] echo and persistent connection - yeah there is TCP there
 - [ ] add echo read-write - that again depends on the API
   - [ ] to client
   - [ ] to server
 - [ ] for better UX and DX
+  - [ ] and the state
   - [ ] work out the connection caching
   - [ ] connect the fieldesc
   - [ ] websocket show status

@@ -15,7 +15,6 @@ use tokio::{
     sync::watch,
 };
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Udp,
@@ -109,6 +108,7 @@ async fn run_tcp_mode(
                 //     .send(Mode::Udp)
                 //     .expect("Failed to switch to UDP mode");
                 debug!("not yet Switching to UDP mode.");
+                let _ = mode_tx.send(Mode::Udp);
             }
         }
     }
@@ -185,7 +185,9 @@ async fn run_udp_mode(
                     }
                 }
             }
-            Err(e) => error!("UDP recv error: {}", e),
+            Err(e) => {
+                error!("UDP recv error: {}", e);
+            }
         }
     }
 }
