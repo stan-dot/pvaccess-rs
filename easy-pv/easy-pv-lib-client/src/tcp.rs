@@ -62,7 +62,7 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
                 let response = EchoResponse {
                     repeated_bytes: echo.random_bytes.clone(),
                 };
-                let response_frame = response.into_frame(Command::Echo, header.flags)?;
+                let response_frame = response.into_frame(Command::Echo, header.flags.bits())?;
                 framed_write.send(response_frame).await?;
             }
             other => {

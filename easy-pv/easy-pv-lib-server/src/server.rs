@@ -3,6 +3,7 @@ use bytes::Bytes;
 use easy_pv_datatypes::codec::PvAccessDecoder;
 use easy_pv_datatypes::frame::{self, PvAccessFrame};
 use easy_pv_datatypes::header::{Command, PvAccessHeader};
+use easy_pv_datatypes::messages::flags::PvHeaderFlags;
 use easy_pv_datatypes::messages::into::{IntoPvAccessFrame, ToBytes};
 use easy_pv_datatypes::messages::pv_beacon::BeaconMessage;
 use easy_pv_datatypes::messages::pv_echo::{EchoMessage, EchoResponse};
@@ -84,7 +85,8 @@ async fn handle_tcp_client(
         Vec::new(), // authz mechanisms
     );
 
-    let request_frame = request.into_frame(Command::ConnectionValidation, 0)?;
+    let initial_flags: PvHeaderFlags = PvHeaderFlags::SEGMENT_NONE | PvHeaderFlags::BIG_ENDIAN;
+    let request_frame = request.into_frame(Command::ConnectionValidation, initial_flags.bits())?;
 
     framed_write.send(request_frame).await?;
     println!("✅ Sent connection validation request");

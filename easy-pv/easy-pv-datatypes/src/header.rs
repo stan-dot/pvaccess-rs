@@ -1,10 +1,7 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use std::{
-    fmt::format,
-    io::{Cursor, Result},
-};
+use std::io::{Cursor, Result};
 
-use crate::messages::into::ToBytes;
+use crate::messages::{flags::PvHeaderFlags, into::ToBytes};
 
 pub const HEADER_LENGTH: usize = 8; // Header length in bytes
 
@@ -13,7 +10,7 @@ pub const HEADER_LENGTH: usize = 8; // Header length in bytes
 pub struct PvAccessHeader {
     pub magic: u8,                // Always 0xCA
     pub version: u8,              // Protocol version
-    pub flags: u8,                // Bitmask flags (endianness, segmentation, etc.)
+    pub flags: PvHeaderFlags,     // Bitmask flags (endianness, segmentation, etc.)
     pub message_command: Command, // Message type
     pub payload_size: u32,        // Length of payload (non-aligned bytes)
 }
@@ -47,7 +44,7 @@ impl PvAccessHeader {
         Self {
             magic: 0xCA,
             version: 2,
-            flags,
+            flags: PvHeaderFlags::from_bits_truncate(flags),
             message_command,
             payload_size,
         }
@@ -76,10 +73,11 @@ impl PvAccessHeader {
         }
 
         let version = cursor.read_u8()?;
-        let flags = cursor.read_u8()?;
+        let raw_flags = cursor.read_u8()?;
+        let flags = PvHeaderFlags::from_bits_truncate(raw_flags);
         let message_command = Command::from(cursor.read_u8()?);
 
-        let payload_size = if flags & 0b1000_0000 != 0 {
+        let payload_size = if flags.contains(PvHeaderFlags::BIG_ENDIAN) {
             cursor.read_u32::<BigEndian>()?
         } else {
             cursor.read_u32::<LittleEndian>()?
@@ -96,20 +94,17 @@ impl PvAccessHeader {
 
     /// 🔹 Check if message is segmented
     pub fn is_segmented(&self) -> bool {
-        matches!(
-            self.flags & 0b0011_0000,
-            0b0001_0000 | 0b0010_0000 | 0b0011_0000
-        )
+        self.flags.contains(PvHeaderFlags::SEGMENT_NONE)
     }
 
     /// 🔹 Check if message is from server
     pub fn is_server_message(&self) -> bool {
-        self.flags & 0b0100_0000 != 0
+        self.flags.contains(PvHeaderFlags::FROM_SERVER)
     }
 
     /// 🔹 Check endianness
     pub fn is_big_endian(&self) -> bool {
-        self.flags & 0b1000_0000 != 0
+        self.flags.contains(PvHeaderFlags::BIG_ENDIAN)
     }
 }
 
@@ -121,10 +116,11 @@ impl ToBytes for PvAccessHeader {
             let mut buffer = Vec::new();
             buffer.write_u8(self.magic)?;
             buffer.write_u8(self.version)?;
-            buffer.write_u8(self.flags)?;
+            buffer.write_u8(self.flags.bits())?;
             buffer.write_u8(self.message_command as u8)?;
+            
 
-            if self.flags & 0b1000_0000 != 0 {
+            if self.flags.contains(PvHeaderFlags::BIG_ENDIAN) {
                 buffer.write_u32::<BigEndian>(self.payload_size)?;
             } else {
                 buffer.write_u32::<LittleEndian>(self.payload_size)?;

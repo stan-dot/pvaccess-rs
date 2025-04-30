@@ -19,6 +19,7 @@ where
 {
     fn into_frame(self, command: Command, flags: u8) -> Result<PvAccessFrame, anyhow::Error> {
         let payload = self.to_bytes()?;
+        println!("Payload length: {}", payload.len());
         let header = PvAccessHeader::new(flags, command, payload.len() as u32);
         Ok(PvAccessFrame {
             header,

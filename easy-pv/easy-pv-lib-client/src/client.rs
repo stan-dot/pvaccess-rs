@@ -131,7 +131,8 @@ async fn run_udp_mode(
                         continue;
                     }
                 };
-                println!("header bytes are {:?}", header_bytes);
+                println!("udp header bytes are {:?}", header_bytes);
+                println!("Parsed udp message header: {:?}", header);
 
                 // Step 2: Check if the full body is present
                 let expected_len = PvAccessHeader::LEN + header.payload_size as usize;
