@@ -38,19 +38,21 @@ using the outlining strategy
 - [x] add frame parsing with tokio_util::codec::FramedRead to the server
 - [x] start the udp beacon
 - [x] parse the header
-- [ ] minimal working client and server for
+- [x] minimal working client and server for
   - [x] udp discovery
   - [x] add the into logic into the frame making
   - [x] FLAGS!!! need to happen really
-  - [ ] double server talking
+- [x] pass the endianness flag into the handling of the frame
+
+
+## Full SDK variant
+  - [ ] rust SDK kind of - being able to define REST endpoints to trigger TCP messages once connection is established - complex client state.
+  - [ ] double client talking - in another binary crate, launch two clients with different configs
   - [ ] echo and persistent connection
 - [ ] add echo read-write
   - [ ] to client
   - [ ] to server
-
-## For later
-
-- [ ] work out the connection caching
-- [ ] pass the endianness flag into the handling of the frame
-- [ ] connect the fieldesc
-- [ ] websocket show status
+- [ ] for better UX and DX
+  - [ ] work out the connection caching
+  - [ ] connect the fieldesc
+  - [ ] websocket show status

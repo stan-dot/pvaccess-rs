@@ -43,8 +43,10 @@ pub async fn start_client(config: ClientConfig) {
         mode_tx.clone(),
         beacon_tx.clone(),
     ));
+
     let tcp_task = tokio::spawn(run_tcp_mode(
         config.clone(),
+        mode_tx.clone(),
         mode_rx.clone(),
         beacon_rx.clone(),
     ));
@@ -61,8 +63,9 @@ pub async fn start_client(config: ClientConfig) {
 
 async fn run_tcp_mode(
     config: ClientConfig,
+    mode_tx: watch::Sender<Mode>,
     mut mode_rx: watch::Receiver<Mode>,
-    mut beacon_rx: watch::Receiver<BeaconMessage>,
+    beacon_rx: watch::Receiver<BeaconMessage>,
 ) {
     loop {
         mode_rx.changed().await.ok();
@@ -89,6 +92,8 @@ async fn run_tcp_mode(
                 println!("✅ TCP session established.");
                 if let Err(e) = handle_tcp_session(stream, &config).await {
                     println!("❌ Error during TCP session: {}", e);
+                    // switch back to UDP mode
+                    let _ = mode_tx.send(Mode::Udp);
                 }
             }
             Err(e) => {
@@ -127,7 +132,7 @@ async fn run_udp_mode(
 
                 // Step 1: Parse header first
                 let header_bytes = &buf[..PvAccessHeader::LEN];
-                println!("full buffer for reference {:?}", buf);
+                // println!("full buffer for reference {:?}", buf);
                 let header = match PvAccessHeader::from_bytes(header_bytes) {
                     Ok(h) => h,
                     Err(e) => {
