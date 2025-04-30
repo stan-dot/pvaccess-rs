@@ -1,10 +1,13 @@
 use crate::config::ClientConfig;
 use easy_pv_datatypes::{
     codec::PvAccessDecoder,
-    frame::{PvAccessEncoder},
+    frame::PvAccessEncoder,
     header::Command,
     messages::{
-        into::IntoPvAccessFrame, pv_echo::{EchoMessage, EchoResponse}, pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse}
+        flags::PvHeaderFlags,
+        into::IntoPvAccessFrame,
+        pv_echo::{EchoMessage, EchoResponse},
+        pv_validation::{ConnectionQoS, ConnectionValidationRequest, ConnectionValidationResponse},
     },
 };
 
@@ -43,13 +46,18 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
         "".to_string(),
     );
 
-    let response_frame = response.into_frame(Command::ConnectionValidation, 0)?;
+    let response_flags: PvHeaderFlags = PvHeaderFlags::SEGMENT_NONE
+        | PvHeaderFlags::BIG_ENDIAN
+        | PvHeaderFlags::FROM_CLIENT
+        | PvHeaderFlags::SEGMENT_NONE;
+    let response_frame =
+        response.into_frame(Command::ConnectionValidation, response_flags.bits())?;
     framed_write.send(response_frame).await?;
     println!("📤 Sent validation response");
 
     // 🔁 Step 3: Process messages
     while let Some(frame_result) = framed_read.next().await {
-        let ( header, payload ) = frame_result?;
+        let (header, payload) = frame_result?;
 
         println!("📦 Received message: {:?}", header.message_command);
         let is_big_endian = header.is_big_endian();
@@ -72,5 +80,6 @@ pub async fn handle_tcp_session(stream: TcpStream, config: &ClientConfig) -> any
     }
 
     println!("🔌 Server closed the connection.");
+    // todo switch to udp again
     Ok(())
 }

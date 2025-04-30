@@ -95,6 +95,10 @@ async fn run_tcp_mode(
                 println!("TCP connection failed: {}", e);
                 // Could revert to UDP here if desired
                 // beacon_rx.
+                // mode_rx
+                //     .send(Mode::Udp)
+                //     .expect("Failed to switch to UDP mode");
+                println!("not yet Switching to UDP mode.");
             }
         }
     }

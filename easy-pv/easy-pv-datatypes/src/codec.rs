@@ -11,17 +11,17 @@ impl Decoder for PvAccessDecoder {
     type Error = io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        // Need enough for header?
+        println!("Decoding PvAccess frame...");
         if src.len() < PvAccessHeader::LEN {
             return Ok(None);
         }
 
-        println!("Decoding PvAccess frame...");
         println!("Buffer length: {}", src.len());
         let header_bytes = &src[..PvAccessHeader::LEN];
         let header = PvAccessHeader::from_bytes(header_bytes)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid header"))?;
 
+        println!("Header: {:?}", header);
         let total_len = PvAccessHeader::LEN + header.payload_size as usize;
         if src.len() < total_len {
             return Ok(None); // Not enough data yet

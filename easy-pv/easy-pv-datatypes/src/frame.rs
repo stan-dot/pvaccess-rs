@@ -7,11 +7,9 @@ use crate::header::PvAccessHeader;
 #[derive(Debug)]
 pub struct PvAccessFrame {
     pub header: PvAccessHeader,
-    pub payload: Bytes, // todo might consider the payload a union of non-binary types
+    pub payload: Bytes,
 }
 pub struct PvAccessEncoder;
-
-
 
 impl Encoder<PvAccessFrame> for PvAccessEncoder {
     type Error = io::Error;
@@ -25,17 +23,5 @@ impl Encoder<PvAccessFrame> for PvAccessEncoder {
 
         dst.extend_from_slice(&item.payload);
         Ok(())
-    }
-}
-
-impl Decoder for PvAccessEncoder {
-    type Error = io::Error;
-
-    type Item = PvAccessFrame;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        // todo first read out the bytes from the pv header
-        // then read out the bytes from the body
-        todo!()
     }
 }

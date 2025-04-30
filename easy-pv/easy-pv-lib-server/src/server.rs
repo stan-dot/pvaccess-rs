@@ -94,6 +94,7 @@ async fn handle_tcp_client(
     // ✅ Step 2: Wait for ConnectionValidationResponse
     if let Some(frame_result) = framed_read.next().await {
         let (header, payload) = frame_result?;
+        println!("🔁 Received frame with header: {:?}", header);
 
         if header.message_command != Command::ConnectionValidation {
             return Err(format!(
