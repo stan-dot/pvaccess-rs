@@ -119,7 +119,6 @@ impl ToBytes for PvAccessHeader {
             buffer.write_u8(self.version)?;
             buffer.write_u8(self.flags.bits())?;
             buffer.write_u8(self.message_command as u8)?;
-            
 
             if self.flags.contains(PvHeaderFlags::BIG_ENDIAN) {
                 buffer.write_u32::<BigEndian>(self.payload_size)?;
@@ -131,26 +130,41 @@ impl ToBytes for PvAccessHeader {
     }
 }
 
-#[test]
-fn test_header_serialization() {
-    let header = PvAccessHeader::new(0b0100_0000, Command::Beacon, 1234); // Server message, command 5, payload 1234
-    let bytes = header.to_bytes().unwrap();
-    let parsed_header = PvAccessHeader::from_bytes(&bytes).unwrap();
-    assert_eq!(header.magic, parsed_header.magic);
-    assert_eq!(header.version, parsed_header.version);
-    assert_eq!(header.flags, parsed_header.flags);
-    assert_eq!(header.message_command, parsed_header.message_command);
-    assert_eq!(header.payload_size, parsed_header.payload_size);
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::messages::flags::PvHeaderFlags;
 
-#[test]
-fn test_from_bytes_correct() {
-    let bytes = [
-        202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2, 0,
-        0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
-    ];
-    debug!("{:?}", bytes);
-    let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
-    debug!("{:?}", h);
-    assert_eq!(h.magic, 0xCA)
+    #[test]
+    fn test_header_creation() {
+        let header = PvAccessHeader::new(0b0100_0000, Command::Beacon, 1234);
+        assert_eq!(header.magic, 0xCA);
+        assert_eq!(header.version, 2);
+        assert_eq!(header.flags, PvHeaderFlags::from_bits_truncate(0b0100_0000));
+        assert_eq!(header.message_command, Command::Beacon);
+        assert_eq!(header.payload_size, 1234);
+    }
+    #[test]
+    fn test_header_serialization() {
+        let header = PvAccessHeader::new(0b0100_0000, Command::Beacon, 1234); // Server message, command 5, payload 1234
+        let bytes = header.to_bytes().unwrap();
+        let parsed_header = PvAccessHeader::from_bytes(&bytes).unwrap();
+        assert_eq!(header.magic, parsed_header.magic);
+        assert_eq!(header.version, parsed_header.version);
+        assert_eq!(header.flags, parsed_header.flags);
+        assert_eq!(header.message_command, parsed_header.message_command);
+        assert_eq!(header.payload_size, parsed_header.payload_size);
+    }
+
+    #[test]
+    fn test_from_bytes_correct() {
+        let bytes = [
+            202, 2, 0, 0, 27, 0, 0, 0, 247, 42, 160, 206, 226, 127, 65, 190, 187, 51, 137, 1, 0, 2,
+            0, 0, 127, 0, 0, 1, 21, 200, 3, 116, 99, 112, 0,
+        ];
+        debug!("{:?}", bytes);
+        let h = PvAccessHeader::from_bytes(&bytes[..PvAccessHeader::LEN]).unwrap();
+        debug!("{:?}", h);
+        assert_eq!(h.magic, 0xCA)
+    }
 }

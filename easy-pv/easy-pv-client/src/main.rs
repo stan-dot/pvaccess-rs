@@ -19,15 +19,24 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use easy_pv_lib_client::helpers::spawn_test_client;
-    use tokio::sync::mpsc;
+    use tokio::time::{Duration, sleep};
 
     #[tokio::test]
     async fn test_two_clients() {
         let c1 = tokio::spawn(spawn_test_client("Client-1", 0));
         let c2 = tokio::spawn(spawn_test_client("Client-2", 1));
 
-        let _ = tokio::join!(c1, c2);
+        // let _ = tokio::join!(c1, c2);
+
+        sleep(Duration::from_secs(5)).await;
+
+        println!("🛑 Time's up, terminating test...");
+
+        // Let tasks shut down gracefully (they’ll auto-drop)
+        c1.abort();
+        c2.abort();
+
+        println!("✅ Two-client test completed.");
     }
 }

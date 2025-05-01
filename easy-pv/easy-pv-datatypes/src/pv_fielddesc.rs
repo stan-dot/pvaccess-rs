@@ -118,11 +118,25 @@ impl FieldDesc {
     }
 }
 
-#[test]
-fn test_parsing() -> Result<()> {
-    let desc = FieldDesc::ArrayBounded(0x02, 10);
-    let encoded = desc.into_bytes()?;
-    let decoded = FieldDesc::from_bytes(&encoded)?;
-    println!("Decoded: {:?}", decoded);
-    Ok(())
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+
+    #[test]
+    fn test_scalar() -> Result<()> {
+        let desc = FieldDesc::Scalar(0x01);
+        let encoded = desc.into_bytes()?;
+        let decoded = FieldDesc::from_bytes(&encoded)?;
+        println!("Decoded: {:?}", decoded);
+        Ok(())
+    }
+    #[test]
+    fn test_parsing() -> Result<()> {
+        let desc = FieldDesc::ArrayBounded(0x02, 10);
+        let encoded = desc.into_bytes()?;
+        let decoded = FieldDesc::from_bytes(&encoded)?;
+        println!("Decoded: {:?}", decoded);
+        Ok(())
+    }
 }

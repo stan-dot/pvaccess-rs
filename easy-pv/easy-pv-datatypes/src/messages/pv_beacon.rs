@@ -136,21 +136,26 @@ impl ToBytes for BeaconMessage {
     }
 }
 
-#[test]
-fn test_crease_body_correctly() {
-    let n = BeaconMessage {
-        guid: [87, 186, 234, 203, 160, 226, 76, 60, 157, 167, 71, 104],
-        flags: 0,
-        beacon_sequence_id: 1,
-        change_count: 0,
-        server_address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        server_port: 5576,
-        protocol: "tcp".to_string(),
-        server_status_if: 0,
-    };
-    let bytes = n.to_bytes().unwrap();
-    println!("{:?}", bytes);
-    let beacon = BeaconMessage::from_bytes(&bytes).unwrap();
-    assert_eq!(beacon.flags, 0);
-    assert_eq!(beacon.beacon_sequence_id, 1);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_crease_body_correctly() {
+        let n = BeaconMessage {
+            guid: [87, 186, 234, 203, 160, 226, 76, 60, 157, 167, 71, 104],
+            flags: 0,
+            beacon_sequence_id: 1,
+            change_count: 0,
+            server_address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            server_port: 5576,
+            protocol: "tcp".to_string(),
+            server_status_if: 0,
+        };
+        let bytes = n.to_bytes().unwrap();
+        println!("{:?}", bytes);
+        let beacon = BeaconMessage::from_bytes(&bytes).unwrap();
+        assert_eq!(beacon.flags, 0);
+        assert_eq!(beacon.beacon_sequence_id, 1);
+    }
 }

@@ -24,12 +24,18 @@ bitflags! {
     }
 }
 
-#[test]
-pub fn test_pv_header_flags() {
-    // Example usage
-    let flags =
-        PvHeaderFlags::FROM_SERVER | PvHeaderFlags::BIG_ENDIAN | PvHeaderFlags::SEGMENT_NONE;
-    assert!(flags.contains(PvHeaderFlags::FROM_SERVER));
-    assert!(flags.contains(PvHeaderFlags::BIG_ENDIAN));
-    assert!(!flags.contains(PvHeaderFlags::CONTROL_MSG));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::messages::flags::PvHeaderFlags;
+
+    #[test]
+    pub fn test_pv_header_flags() {
+        // Example usage
+        let flags =
+            PvHeaderFlags::FROM_SERVER | PvHeaderFlags::BIG_ENDIAN | PvHeaderFlags::SEGMENT_NONE;
+        assert!(flags.contains(PvHeaderFlags::FROM_SERVER));
+        assert!(flags.contains(PvHeaderFlags::BIG_ENDIAN));
+        assert!(!flags.contains(PvHeaderFlags::CONTROL_MSG));
+    }
 }
